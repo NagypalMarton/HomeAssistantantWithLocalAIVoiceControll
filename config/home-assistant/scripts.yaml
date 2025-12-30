@@ -1,5 +1,30 @@
 # Home Assistant Scripts for Ollama Chat
 
+# Main conversation handler with Ollama
+ollama_conversation_handler:
+  description: "Handle conversation through Ollama"
+  fields:
+    text:
+      description: "User input text"
+      required: true
+  sequence:
+    - service: rest_command.ollama_chat
+      data:
+        prompt: |
+          You are a helpful smart home assistant named "Otthon Asszisztens" (Home Assistant in Hungarian).
+          You help users control their smart home devices and answer questions.
+          Be concise, friendly, and helpful. Answer in Hungarian.
+          
+          User: {{ text }}
+          Assistant:
+        temperature: 0.7
+        max_tokens: 256
+      response_variable: ollama_response
+    - service: notify.persistent_notification
+      data:
+        title: "Ollama válasz"
+        message: "{{ ollama_response }}"
+
 ollama_simple_chat:
   description: "Send a simple message to Ollama and get response"
   fields:

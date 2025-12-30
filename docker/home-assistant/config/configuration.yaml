@@ -1,11 +1,97 @@
+# Home Assistant configuration with Ollama LLM chat integration
 
-# Loads default set of integrations. Do not remove.
+homeassistant:
+  name: Home
+  latitude: !secret latitude
+  longitude: !secret longitude
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/Budapest
+  
+  external_url: !secret external_url
+  internal_url: !secret internal_url
+
+# Configure HTTP
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+
+# Default configuration
 default_config:
 
-# Load frontend themes from the themes folder
-frontend:
-  themes: !include_dir_merge_named themes
+# Text to speech
+tts:
+  - platform: google_translate
+    language: 'hu'
 
-automation: !include automations.yaml
+# REST Commands for Ollama LLM
+rest_command:
+  ollama_chat:
+    url: "http://ollama:11434/api/generate"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >
+      {
+        "model": "llama3.2:3b",
+        "prompt": "{{ prompt }}",
+        "stream": false,
+        "temperature": {{ temperature | default(0.7) }},
+        "num_predict": {{ max_tokens | default(256) }}
+      }
+    timeout: 120
+
+  ollama_health_check:
+    url: "http://ollama:11434/api/tags"
+    method: GET
+
+# Input Text Helper for Chat
+input_text:
+  ollama_prompt:
+    name: "Ollama Prompt"
+    min: 1
+    max: 1024
+
+  ollama_response:
+    name: "Ollama Response"
+    min: 0
+    max: 4096
+
+# Sensors
+sensor:
+  - platform: rest
+    name: "Ollama Status"
+    resource: "http://ollama:11434/api/tags"
+    method: GET
+    value_template: >
+      {% if value_json.models is defined %}
+        {{ value_json.models | length }}
+      {% else %}
+        0
+      {% endif %}
+    unit_of_measurement: "models"
+    scan_interval: 300
+
+  - platform: template
+    sensors:
+      ollama_model_info:
+        friendly_name: "Available Models"
+        unit_of_measurement: "count"
+        value_template: >
+          {% if state_attr('sensor.ollama_status', 'models') %}
+            {{ state_attr('sensor.ollama_status', 'models') | length }}
+          {% else %}
+            0
+          {% endif %}
+
+# Scripts for chatbot interaction
 script: !include scripts.yaml
+
+# Automations
+automation: !include automations.yaml
+
+# Scenes
 scene: !include scenes.yaml

@@ -1,4 +1,4 @@
-# Home Assistant configuration file
+# Home Assistant configuration with Ollama LLM chat integration
 
 homeassistant:
   name: Home
@@ -8,7 +8,6 @@ homeassistant:
   unit_system: metric
   time_zone: Europe/Budapest
   
-  # External URL for accessing Home Assistant
   external_url: !secret external_url
   internal_url: !secret internal_url
 
@@ -28,23 +27,53 @@ tts:
   - platform: google_translate
     language: 'hu'
 
-# Ollama LLM integration
+# REST Commands for Ollama LLM
 rest_command:
-  ollama_generate:
+  ollama_chat:
     url: "http://ollama:11434/api/generate"
     method: POST
     headers:
       Content-Type: application/json
     payload: >
       {
-        "model": "{{ model }}",
+        "model": "llama3.2:3b",
         "prompt": "{{ prompt }}",
-        "stream": false
+        "stream": false,
+        "temperature": {{ temperature | default(0.7) }},
+        "num_predict": {{ max_tokens | default(256) }}
       }
-    
+    timeout: 120
+
+  ollama_conversation:
+    url: "http://ollama:11434/api/generate"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >
+      {
+        "model": "llama3.2:3b",
+        "prompt": "You are a helpful smart home assistant. Be concise and answer in Hungarian.\n\nUser: {{ text }}\nAssistant:",
+        "stream": false,
+        "temperature": 0.7,
+        "num_predict": 150
+      }
+    timeout: 60
+
   ollama_health_check:
     url: "http://ollama:11434/api/tags"
     method: GET
+
+# Input Text Helper for Chat
+input_text:
+  ollama_prompt:
+    name: "Ollama Prompt"
+    min: 1
+    max: 255
+
+  ollama_response:
+    name: "Ollama Response"
+    min: 0
+    max: 255
 
 # Sensors
 sensor:
@@ -61,11 +90,26 @@ sensor:
     unit_of_measurement: "models"
     scan_interval: 300
 
-# Automation configurations
-automation: !include automations.yaml
+  - platform: template
+    sensors:
+      ollama_model_info:
+        friendly_name: "Available Models"
+        unit_of_measurement: "count"
+        value_template: >
+          {% if state_attr('sensor.ollama_status', 'models') %}
+            {{ state_attr('sensor.ollama_status', 'models') | length }}
+          {% else %}
+            0
+          {% endif %}
 
-# Script configurations
+# Scripts for chatbot interaction
 script: !include scripts.yaml
 
-# Scene configurations
+# Intent handlers for Assist
+intent_script: !include intent_script.yaml
+
+# Automations
+automation: !include automations.yaml
+
+# Scenes
 scene: !include scenes.yaml

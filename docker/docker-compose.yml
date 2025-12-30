@@ -3,15 +3,16 @@ services:
     container_name: homeassistant
     image: homeassistant/home-assistant:latest
     volumes:
-      - ./home-assistant/config:/config
+      - homeassistant-config:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "8123:8123"
     restart: unless-stopped
     privileged: true
-    network_mode: host
     environment:
       - TZ=Europe/Budapest
+    networks:
+      - ha-network
 
   ollama:
     container_name: ollama
@@ -31,6 +32,8 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    networks:
+      - ha-network
 
   zabbix-postgres:
     container_name: zabbix-postgres
@@ -42,6 +45,8 @@ services:
       - POSTGRES_PASSWORD=zabbix_password
       - POSTGRES_DB=zabbix
     restart: unless-stopped
+    networks:
+      - ha-network
 
   zabbix-server:
     container_name: zabbix-server
@@ -58,6 +63,8 @@ services:
     depends_on:
       - zabbix-postgres
     restart: unless-stopped
+    networks:
+      - ha-network
 
   zabbix-web:
     container_name: zabbix-web
@@ -75,6 +82,8 @@ services:
       - zabbix-server
       - zabbix-postgres
     restart: unless-stopped
+    networks:
+      - ha-network
 
   zabbix-agent:
     container_name: zabbix-agent
@@ -85,7 +94,14 @@ services:
       - ZBX_HOSTNAME=docker-host
       - ZBX_SERVER_HOST=zabbix-server
     restart: unless-stopped
+    networks:
+      - ha-network
 
 volumes:
+  homeassistant-config:
   ollama-data:
   zabbix-postgres-data:
+
+networks:
+  ha-network:
+    driver: bridge

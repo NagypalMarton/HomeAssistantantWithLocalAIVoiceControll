@@ -1,5 +1,15 @@
 # Ollama models to download and keep available
+# Optimized for NVIDIA GeForce RTX 2050 (4GB VRAM)
 
-llama3:8b
-mistral:7b
-codellama:13b
+# Recommended - Best performance on 4GB GPU
+llama3.2:3b
+phi3:mini
+qwen2.5:3b
+
+# Alternative smaller models (faster, less VRAM)
+# gemma:2b
+# tinyllama:1.1b
+
+# Larger models (may work but tight on 4GB VRAM)
+# llama3:8b
+# mistral:7b
