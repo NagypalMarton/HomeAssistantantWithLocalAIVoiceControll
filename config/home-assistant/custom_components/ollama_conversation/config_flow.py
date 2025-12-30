@@ -26,6 +26,10 @@ class OllamaConversationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    async def async_step_import(self, import_data: dict[str, Any]) -> FlowResult:
+        """Handle import from configuration.yaml."""
+        return await self.async_step_user(import_data)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -48,5 +52,9 @@ class OllamaConversationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_show_form(
                 step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
             )
+
+        # Check if already configured
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
 
         return self.async_create_entry(title="Ollama", data=user_input)

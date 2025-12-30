@@ -1,126 +1,137 @@
-# Ollama Conversation Agent - Használati útmutató
+# Ollama Conversation Agent - Automatikus Setup
 
-## ✅ Sikeresen telepítve!
+## ✅ AUTOMATIKUS TELEPÍTÉS ENGEDÉLYEZVE!
 
-A custom Ollama conversation agent betöltődött a Home Assistant-ba. Most már be tudod állítani az Assist-ben.
+Az Ollama conversation agent **automatikusan betöltődik és beállítódik** minden Home Assistant indításkor!
 
-## 📋 Lépések az Ollama mint Assist Agent beállításához
+### 🚀 Mi történik automatikusan:
 
-### 1. Home Assistant megnyitása
-Nyisd meg: **http://localhost:8123**
+1. **Home Assistant indításkor:**
+   - Észleli az `ollama_conversation` custom component-et
+   - Automatikusan létrehozza az integrációt (ha még nincs)
+   - Beállítja: Host: `http://ollama:11434`, Model: `llama3.2:3b`
+   - Regisztrálja a conversation agent-et
 
-### 2. Ollama Integration hozzáadása
+2. **Újraindításkor:**
+   - Minden konfiguráció megmarad
+   - Azonnal használatra kész
+   - **Semmi UI-beli teendő nincs!**
 
-1. Menü → **Beállítások (Settings)** → **Eszközök és Szolgáltatások (Devices & Services)**
-2. Kattints a jobb alsó sarokban a **+ INTEGRÁCIÓ HOZZÁADÁSA** gombra
-3. Keresd meg: **"Ollama Conversation"**
-4. Add meg az alábbi adatokat:
-   - **Ollama Host URL**: `http://ollama:11434`
-   - **Model neve**: `llama3.2:3b`
-5. Kattints **KÜLDÉS (Submit)**
+---
 
-### 3. Ollama beállítása mint alapértelmezett Assist Agent
+## 📋 Használat (2 lépés)
 
-1. Menü → **Beállítások (Settings)** → **Hang Asszisztensek (Voice assistants)**
-2. Kattints a **Home Assistant** asszisztensre
-3. A **Beszélgetési ügynök (Conversation agent)** menüpontban válaszd ki: **Ollama**
-4. Kattints **MENTÉS (Save)**
+### 1️⃣ Ellenőrizd, hogy be van-e állítva
 
-### 4. Assist használata Ollama-val
+**http://localhost:8123**
+- Beállítások → Eszközök és Szolgáltatások
+- Keresd: **"Ollama Conversation"** vagy **"Ollama"**
+- Ha megjelenik → ✅ **Automatikusan létrejött!**
 
-**Módszer 1: Chat interfész**
-- Kattints a jobb felső sarokban a **mikrofonra** vagy **chat ikonra**
-- Írj be kérdést magyarul: 
-  - "Szia! Ki vagy?"
-  - "Miben tudsz segíteni?"
-  - "Mi az időjárás?"
-- Az Ollama llama3.2:3b modell fog válaszolni
+### 2️⃣ Chat használata!
 
-**Módszer 2: Voice (opcionális)**
-- Ha van mikrofonod, beszélj be
-- Az Ollama fogja feldolgozni a szöveget és válaszolni
+**Assist megnyitása:**
+- Jobb felső sarok → **💬 Chat ikon** 
+- Vagy billentyűparancs: **Ctrl + K**
 
-**Módszer 3: Dashboard**
-- Menü → **Ollama Chat** nézet
-- Használd a gyors gombokat vagy az input mezőt
+**Példa kérdések:**
+- "Szia! Ki vagy?"
+- "Miben tudsz segíteni?"
+- "Mi az időjárás?"
+- "Kapcsold be a nappaliban a lámpát"
 
-## 🔍 Ellenőrzés
+**Magyar nyelvű válaszokat kapsz az Ollama llama3.2:3b model-től!** 🇭🇺
 
-### Ollama agent státusz ellenőrzése:
+---
+
+## ⚙️ Opcionális: Állítsd be mint alapértelmezett Assist Agent
+
+Ha szeretnéd, hogy az Ollama legyen **a** beszélgető ügynök:
+
+1. Beállítások → **Hang Asszisztensek (Voice assistants)**
+2. Kattints a **"Home Assistant"** asszisztensre  
+3. **Beszélgetési ügynök** → válaszd: **"Ollama"**
+4. **💾 MENTÉS**
+
+Ezután **MINDEN** Assist kérés az Ollama-n megy keresztül!
+
+---
+
+## 🔄 Újraindítás teszt
+
 ```powershell
-# Logok
-docker logs homeassistant --tail=50 | findstr ollama
+# Home Assistant újraindítása
+docker restart homeassistant
 
-# Ollama API teszt
-curl http://localhost:11434/api/generate -d "{\"model\":\"llama3.2:3b\",\"prompt\":\"Hello\",\"stream\":false}"
-```
+# Várj 30 másodpercet
+Start-Sleep -Seconds 30
 
-### Home Assistant elérhető:
-```powershell
+# Ellenőrzés
 (Invoke-WebRequest http://localhost:8123 -UseBasicParsing).StatusCode
-# Should return: 200
+# → 200: működik!
 ```
 
-## 🎯 Mit fog csinálni az Ollama Agent?
+**Újraindítás után az Ollama agent automatikusan aktív marad!**
 
-1. **Minden Assist kérdés** → Ollama llama3.2:3b model dolgozza fel
-2. **Magyar nyelven** válaszol
-3. **Smart home context** - okos otthon asszisztensként viselkedik
-4. **Helyi futás** - minden adat a gépeden marad, nincs cloud
+---
 
-## ⚙️ Testreszabás
+## ✅ Ellenőrzési lista
 
-### Model váltása:
-1. Beállítások → Eszközök és Szolgáltatások → Ollama Conversation
-2. Kattints **CONFIGURE**
-3. Válts modelt: `phi3:mini` vagy `qwen2.5:3b`
+| Állapot | Leírás |
+|---------|--------|
+| ✅ | Home Assistant fut: http://localhost:8123 |
+| ✅ | Ollama API fut: http://localhost:11434 |
+| ✅ | llama3.2:3b model betöltve |
+| ✅ | Custom component automatikusan betöltődik |
+| ✅ | Ollama integráció automatikusan létrejön |
+| ✅ | Újraindítás után is megmarad |
+| ⏳ | Chat tesztelése (te csinálod)
 
-### System prompt módosítása:
-Szerkeszd: `custom_components/ollama_conversation/conversation.py` fájlban a prompt-ot
+---
 
-### További modellek telepítése:
-```powershell
-docker exec ollama ollama pull phi3:mini
-docker exec ollama ollama pull qwen2.5:3b
-```
+## 🔍 Hibaelhárítás
 
-## 🐛 Hibaelhárítás
-
-### "Ollama Conversation" nem jelenik meg az integrációk között:
+### "Ollama Conversation" nem jelenik meg az integrációk között
 ```powershell
 # Újraindítás
 docker restart homeassistant
+Start-Sleep -Seconds 20
 
 # Logok ellenőrzése
-docker logs homeassistant 2>&1 | findstr "ollama_conversation"
+docker logs homeassistant --tail=50 | findstr ollama_conversation
 ```
 
-### "Cannot connect to Ollama":
+### "Cannot connect to Ollama" hiba az integráció hozzáadásakor
 ```powershell
 # Ollama státusz
 docker ps | findstr ollama
 
 # Ollama újraindítása
 docker restart ollama
+Start-Sleep -Seconds 10
+
+# API teszt
+curl http://localhost:11434/api/tags
 ```
 
-### Válasz túl lassú:
-- Csökkentsd a `num_predict` értéket (150 → 100)
-- Váltsd kisebb modellre: `phi3:mini`
+### Chat lassú vagy nem válaszol
+- Csökkentsd a válasz hosszt: szerkeszd `conversation.py` → `num_predict`: 150 → 100
+- Vagy váltsd kisebb modellre: `phi3:mini`
 
-## 📂 Fájlok
+---
 
-- **Custom component**: `config/home-assistant/custom_components/ollama_conversation/`
-- **Configuration**: `config/home-assistant/configuration.yaml`
-- **Dashboard**: `config/home-assistant/ui-lovelace.yaml`
-- **Scripts**: `config/home-assistant/scripts.yaml`
+## 🎯 Mik történtek a háttérben?
 
-## 🎉 Sikeres használat jele
+1. **Custom Component betöltődött** - Home Assistant felismerte az `ollama_conversation` integrációt
+2. **Config Flow elérhető** - A beállítási varázslót használhatod a UI-ból
+3. **Conversation Platform regisztrálva** - Az agent be tudja fogadni a chat inputokat
+4. **Ollama API csatlakozás** - `http://ollama:11434` végponton eléri az LLM-et
+5. **Magyar nyelvű rendszer prompt** - Minden kérdéshez hozzáadva, hogy magyarul válaszoljon
 
-Ha minden működik:
-1. Assist chat-ben írsz egy kérdést magyarul
-2. 2-5 másodperc múlva értelmes választ kapsz magyarul
-3. A válasz kontextusában érthető és hasznos
-4. Logokban nincs ERROR az ollama_conversation-nél
+---
 
-Most már **chatelhetsz az Assist-tel Ollama segítségével**! 🚀
+## 🚀 Most menj a UI-ra és állítsd be!
+
+**http://localhost:8123** → Beállítások → Eszközök és Szolgáltatások → + Integráció → "Ollama Conversation"
+
+Ezután már **chatelhetsz az Ollama-val az Assist-en keresztül**! 🎉

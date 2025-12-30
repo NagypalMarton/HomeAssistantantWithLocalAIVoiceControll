@@ -54,7 +54,7 @@ rest_command:
         "model": "llama3.2:3b",
         "prompt": "You are a helpful smart home assistant. Be concise and answer in Hungarian.\n\nUser: {{ text }}\nAssistant:",
         "stream": false,
-        "temperature": 0.7,
+        "temperature": 0.4,
         "num_predict": 150
       }
     timeout: 60
@@ -90,12 +90,12 @@ sensor:
     unit_of_measurement: "models"
     scan_interval: 300
 
-  - platform: template
-    sensors:
-      ollama_model_info:
-        friendly_name: "Available Models"
+# Modern Template Sensors
+template:
+  - sensor:
+      - name: "Available Models"
         unit_of_measurement: "count"
-        value_template: >
+        state: >
           {% if state_attr('sensor.ollama_status', 'models') %}
             {{ state_attr('sensor.ollama_status', 'models') | length }}
           {% else %}

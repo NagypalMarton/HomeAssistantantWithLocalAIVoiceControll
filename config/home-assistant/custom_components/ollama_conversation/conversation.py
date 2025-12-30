@@ -1,6 +1,5 @@
 """Ollama conversation agent."""
 import logging
-import json
 import aiohttp
 import async_timeout
 
@@ -8,23 +7,12 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, MATCH_ALL
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import intent
 from homeassistant.util import ulid
 
 from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up Ollama conversation agent from a config entry."""
-    agent = OllamaConversationAgent(hass, config_entry)
-    async_add_entities([agent])
-    conversation.async_set_agent(hass, config_entry, agent)
 
 
 class OllamaConversationAgent(conversation.AbstractConversationAgent):
@@ -34,8 +22,11 @@ class OllamaConversationAgent(conversation.AbstractConversationAgent):
         """Initialize the agent."""
         self.hass = hass
         self.entry = entry
-        self._attr_name = "Ollama"
-        self._attr_unique_id = entry.entry_id
+
+    @property
+    def attribution(self):
+        """Return the attribution."""
+        return {"name": "Powered by Ollama", "url": "https://ollama.ai"}
 
     @property
     def supported_languages(self) -> list[str] | str:
@@ -65,7 +56,7 @@ You can help with controlling smart home devices and answering questions.
 User: {user_input.text}
 Assistant:""",
                             "stream": False,
-                            "temperature": 0.7,
+                            "temperature": 0.4,
                             "num_predict": 150,
                         },
                     ) as response:
@@ -81,7 +72,7 @@ Assistant:""",
             _LOGGER.error("Error calling Ollama: %s", err)
             response_text = f"Hiba: {str(err)}"
 
-        intent_response = conversation.intent.IntentResponse(language=user_input.language)
+        intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(response_text)
         
         return conversation.ConversationResult(
