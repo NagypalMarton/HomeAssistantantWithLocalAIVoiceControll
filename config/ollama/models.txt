@@ -1,0 +1,5 @@
+# Ollama models to download and keep available
+
+llama3:8b
+mistral:7b
+codellama:13b

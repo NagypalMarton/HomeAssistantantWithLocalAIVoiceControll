@@ -1,0 +1,57 @@
+{{- if .Values.homeAssistant.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ha-llm-stack.fullname" . }}-home-assistant
+  labels:
+    {{- include "ha-llm-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: home-assistant
+spec:
+  replicas: {{ .Values.homeAssistant.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "ha-llm-stack.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: home-assistant
+  template:
+    metadata:
+      labels:
+        {{- include "ha-llm-stack.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: home-assistant
+    spec:
+      containers:
+      - name: home-assistant
+        image: "{{ .Values.homeAssistant.image.repository }}:{{ .Values.homeAssistant.image.tag }}"
+        imagePullPolicy: {{ .Values.homeAssistant.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8123
+          protocol: TCP
+        env:
+        - name: TZ
+          value: {{ .Values.global.timezone }}
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        resources:
+          {{- toYaml .Values.homeAssistant.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /api/
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: config
+        {{- if .Values.homeAssistant.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "ha-llm-stack.fullname" . }}-home-assistant
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+{{- end }}

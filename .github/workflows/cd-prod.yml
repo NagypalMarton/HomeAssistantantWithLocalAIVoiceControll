@@ -1,0 +1,95 @@
+name: CD - Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+
+env:
+  KUBECONFIG: ${{ secrets.KUBECONFIG_PROD }}
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.version }}
+      
+      - name: Setup Kubernetes tools
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+      
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_PROD }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+      
+      - name: Create backup
+        run: |
+          echo "Creating backup of current deployment..."
+          kubectl get all -n ha-llm-system -o yaml > backup-$(date +%Y%m%d-%H%M%S).yaml
+      
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install ha-llm-stack \
+            ./helm/ha-llm-stack \
+            --namespace ha-llm-system \
+            --create-namespace \
+            --values ./helm/ha-llm-stack/values-prod.yaml \
+            --wait \
+            --timeout 15m \
+            --atomic \
+            --cleanup-on-fail
+      
+      - name: Check deployment status
+        run: |
+          kubectl get pods -n ha-llm-system
+          kubectl get services -n ha-llm-system
+          kubectl get ingress -n ha-llm-system
+      
+      - name: Run health checks
+        run: |
+          echo "Running health checks..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=home-assistant -n ha-llm-system --timeout=600s
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=ollama -n ha-llm-system --timeout=600s
+      
+      - name: Run integration tests
+        run: |
+          echo "Running integration tests..."
+          # Add your integration tests here
+      
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment ${{ job.status }} - Version: ${{ github.event.release.tag_name || inputs.version }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      
+      - name: Create deployment tag
+        if: success()
+        run: |
+          git tag -a "deployed-prod-$(date +%Y%m%d-%H%M%S)" -m "Production deployment"
+          git push origin --tags

@@ -1,0 +1,119 @@
+{
+  "zabbix_export": {
+    "version": "6.0",
+    "date": "2025-12-30T00:00:00Z",
+    "groups": [
+      {
+        "name": "Home Assistant + LLM Stack"
+      }
+    ],
+    "templates": [
+      {
+        "template": "Home Assistant Monitoring",
+        "name": "Home Assistant Monitoring",
+        "groups": [
+          {
+            "name": "Home Assistant + LLM Stack"
+          }
+        ],
+        "items": [
+          {
+            "name": "Home Assistant Health",
+            "type": "EXTERNAL",
+            "key": "check_homeassistant.sh[{$HA_URL}]",
+            "delay": "60s",
+            "value_type": "UNSIGNED",
+            "description": "Check if Home Assistant API is responding"
+          },
+          {
+            "name": "Home Assistant Response Time",
+            "type": "SIMPLE",
+            "key": "net.tcp.service.perf[http,{HOST.IP},8123]",
+            "delay": "60s",
+            "value_type": "FLOAT",
+            "units": "s",
+            "description": "Home Assistant HTTP response time"
+          }
+        ],
+        "triggers": [
+          {
+            "expression": "{Home Assistant Monitoring:check_homeassistant.sh[{$HA_URL}].last()}=0",
+            "name": "Home Assistant is down",
+            "priority": "HIGH"
+          },
+          {
+            "expression": "{Home Assistant Monitoring:net.tcp.service.perf[http,{HOST.IP},8123].avg(5m)}>5",
+            "name": "Home Assistant response time is high",
+            "priority": "WARNING"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$HA_URL}",
+            "value": "http://home-assistant:8123"
+          }
+        ]
+      },
+      {
+        "template": "Ollama LLM Monitoring",
+        "name": "Ollama LLM Monitoring",
+        "groups": [
+          {
+            "name": "Home Assistant + LLM Stack"
+          }
+        ],
+        "items": [
+          {
+            "name": "Ollama Health",
+            "type": "EXTERNAL",
+            "key": "check_ollama.sh[{$OLLAMA_URL}]",
+            "delay": "60s",
+            "value_type": "UNSIGNED",
+            "description": "Number of available Ollama models"
+          },
+          {
+            "name": "Ollama Response Time",
+            "type": "SIMPLE",
+            "key": "net.tcp.service.perf[http,{HOST.IP},11434]",
+            "delay": "60s",
+            "value_type": "FLOAT",
+            "units": "s",
+            "description": "Ollama API response time"
+          },
+          {
+            "name": "GPU Utilization",
+            "type": "EXTERNAL",
+            "key": "check_gpu_usage.sh",
+            "delay": "30s",
+            "value_type": "UNSIGNED",
+            "units": "%",
+            "description": "GPU utilization percentage"
+          }
+        ],
+        "triggers": [
+          {
+            "expression": "{Ollama LLM Monitoring:check_ollama.sh[{$OLLAMA_URL}].last()}=0",
+            "name": "Ollama is down or no models available",
+            "priority": "HIGH"
+          },
+          {
+            "expression": "{Ollama LLM Monitoring:check_gpu_usage.sh.avg(5m)}>90",
+            "name": "GPU utilization is very high",
+            "priority": "WARNING"
+          },
+          {
+            "expression": "{Ollama LLM Monitoring:net.tcp.service.perf[http,{HOST.IP},11434].avg(5m)}>10",
+            "name": "Ollama response time is high",
+            "priority": "WARNING"
+          }
+        ],
+        "macros": [
+          {
+            "macro": "{$OLLAMA_URL}",
+            "value": "http://ollama:11434"
+          }
+        ]
+      }
+    ]
+  }
+}

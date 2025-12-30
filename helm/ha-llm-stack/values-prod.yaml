@@ -1,0 +1,71 @@
+# Production environment overrides
+
+global:
+  domain: "yourdomain.com"
+  storageClass: "fast-ssd"
+
+homeAssistant:
+  image:
+    pullPolicy: IfNotPresent
+  
+  replicas: 2  # High availability
+  
+  persistence:
+    size: 10Gi
+  
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "4000m"
+
+ollama:
+  image:
+    pullPolicy: IfNotPresent
+  
+  persistence:
+    size: 100Gi
+  
+  gpu:
+    enabled: true
+    count: 1
+  
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "4000m"
+    limits:
+      memory: "32Gi"
+      cpu: "16000m"
+  
+  models:
+    - llama3:8b
+    - llama3:70b
+    - mistral:7b
+    - mixtral:8x7b
+    - codellama:13b
+    - wizardcoder:34b
+
+multiUser:
+  enabled: true
+  resourceQuota:
+    requests:
+      cpu: "8"
+      memory: 16Gi
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "16"
+      memory: 32Gi
+      nvidia.com/gpu: "1"
+    storage: "200Gi"
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 30d
+  grafana:
+    enabled: true
+    persistence: true

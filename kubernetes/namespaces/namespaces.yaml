@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ha-llm-system
+  labels:
+    name: ha-llm-system
+    monitoring: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ha-llm-user-template
+  labels:
+    name: ha-llm-user-template
+    monitoring: enabled
+    user-namespace: "true"

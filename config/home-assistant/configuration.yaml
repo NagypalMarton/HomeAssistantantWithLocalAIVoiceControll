@@ -1,0 +1,71 @@
+# Home Assistant configuration file
+
+homeassistant:
+  name: Home
+  latitude: !secret latitude
+  longitude: !secret longitude
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/Budapest
+  
+  # External URL for accessing Home Assistant
+  external_url: !secret external_url
+  internal_url: !secret internal_url
+
+# Configure HTTP
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+
+# Default configuration
+default_config:
+
+# Text to speech
+tts:
+  - platform: google_translate
+    language: 'hu'
+
+# Ollama LLM integration
+rest_command:
+  ollama_generate:
+    url: "http://ollama:11434/api/generate"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >
+      {
+        "model": "{{ model }}",
+        "prompt": "{{ prompt }}",
+        "stream": false
+      }
+    
+  ollama_health_check:
+    url: "http://ollama:11434/api/tags"
+    method: GET
+
+# Sensors
+sensor:
+  - platform: rest
+    name: "Ollama Status"
+    resource: "http://ollama:11434/api/tags"
+    method: GET
+    value_template: >
+      {% if value_json.models is defined %}
+        {{ value_json.models | length }}
+      {% else %}
+        0
+      {% endif %}
+    unit_of_measurement: "models"
+    scan_interval: 300
+
+# Automation configurations
+automation: !include automations.yaml
+
+# Script configurations
+script: !include scripts.yaml
+
+# Scene configurations
+scene: !include scenes.yaml

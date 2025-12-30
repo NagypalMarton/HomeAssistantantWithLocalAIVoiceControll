@@ -1,0 +1,71 @@
+name: CD - Deploy to Development
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  KUBECONFIG: ${{ secrets.KUBECONFIG_DEV }}
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Kubernetes tools
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+      
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_DEV }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+      
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install ha-llm-stack \
+            ./helm/ha-llm-stack \
+            --namespace ha-llm-system \
+            --create-namespace \
+            --values ./helm/ha-llm-stack/values-dev.yaml \
+            --wait \
+            --timeout 10m
+      
+      - name: Check deployment status
+        run: |
+          kubectl get pods -n ha-llm-system
+          kubectl get services -n ha-llm-system
+          kubectl get ingress -n ha-llm-system
+      
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=home-assistant -n ha-llm-system --timeout=300s
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=ollama -n ha-llm-system --timeout=300s
+      
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Development deployment ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

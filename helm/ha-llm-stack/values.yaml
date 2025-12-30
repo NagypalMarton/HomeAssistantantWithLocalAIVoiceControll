@@ -1,0 +1,133 @@
+# Default values for ha-llm-stack
+# This is a YAML-formatted file.
+
+global:
+  timezone: "Europe/Budapest"
+  domain: "yourdomain.com"
+  storageClass: "standard"
+
+homeAssistant:
+  enabled: true
+  image:
+    repository: homeassistant/home-assistant
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8123
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: ha.yourdomain.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ha-tls
+        hosts:
+          - ha.yourdomain.com
+  
+  persistence:
+    enabled: true
+    size: 5Gi
+    accessMode: ReadWriteOnce
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+
+ollama:
+  enabled: true
+  image:
+    repository: ollama/ollama
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 11434
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    hosts:
+      - host: ollama.yourdomain.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ollama-tls
+        hosts:
+          - ollama.yourdomain.com
+  
+  persistence:
+    enabled: true
+    size: 50Gi
+    accessMode: ReadWriteOnce
+  
+  gpu:
+    enabled: true
+    count: 1
+    type: nvidia
+  
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "2000m"
+    limits:
+      memory: "16Gi"
+      cpu: "8000m"
+  
+  nodeSelector:
+    nvidia.com/gpu: "true"
+  
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  
+  models:
+    - llama3:8b
+    - mistral:7b
+    - codellama:13b
+
+multiUser:
+  enabled: true
+  resourceQuota:
+    requests:
+      cpu: "4"
+      memory: 8Gi
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: 16Gi
+      nvidia.com/gpu: "1"
+    storage: "100Gi"
+  
+  limitRange:
+    default:
+      cpu: "1000m"
+      memory: "2Gi"
+    defaultRequest:
+      cpu: "500m"
+      memory: "1Gi"
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
