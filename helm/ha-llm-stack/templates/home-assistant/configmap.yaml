@@ -7,16 +7,20 @@ metadata:
     {{- include "ha-llm-stack.labels" . | nindent 4 }}
     app.kubernetes.io/component: home-assistant
 data:
-  custom_components/ollama_conversation/__init__.py: |
+  ollama_conversation__init__.py: |
 {{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/__init__.py" | indent 4 }}
-  custom_components/ollama_conversation/conversation.py: |
+  ollama_conversation__conversation.py: |
 {{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/conversation.py" | indent 4 }}
-  custom_components/ollama_conversation/config_flow.py: |
+  ollama_conversation__config_flow.py: |
 {{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/config_flow.py" | indent 4 }}
-  custom_components/ollama_conversation/manifest.json: |
+  ollama_conversation__manifest.json: |
 {{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/manifest.json" | indent 4 }}
-  custom_components/ollama_conversation/strings.json: |
+  ollama_conversation__strings.json: |
 {{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/strings.json" | indent 4 }}
-  .storage/assist_pipeline.pipelines: |
+  ollama_conversation__tools.py: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/tools.py" | indent 4 }}
+  ollama_conversation__tool_executor.py: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/tool_executor.py" | indent 4 }}
+  assist_pipeline.pipelines: |
 {{ .Files.Get "files/mikrobi/.storage/assist_pipeline.pipelines" | indent 4 }}
 {{- end }}

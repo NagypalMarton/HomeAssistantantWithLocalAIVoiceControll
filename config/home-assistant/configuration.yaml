@@ -22,6 +22,29 @@ http:
 # Default configuration
 default_config:
 
+# Test entities using input helpers (no platform required)
+input_boolean:
+  bedroom_light:
+    name: Bedroom Light
+    icon: mdi:lightbulb
+    
+  living_room_light:
+    name: Living Room Light
+    icon: mdi:lightbulb
+
+  hallway_fan:
+    name: Hallway Fan
+    icon: mdi:fan
+
+input_number:
+  living_room_temperature:
+    name: Living Room Temperature
+    unit_of_measurement: °C
+    min: 15
+    max: 30
+    step: 0.5
+    icon: mdi:thermometer
+
 # Text to speech
 tts:
   - platform: google_translate
@@ -104,6 +127,13 @@ template:
 
 # Scripts for chatbot interaction
 script: !include scripts.yaml
+
+# Logging configuration
+logger:
+  default: warning
+  logs:
+    custom_components.ollama_conversation: debug
+    homeassistant.components.conversation: debug
 
 # Intent handlers for Assist
 intent_script: !include intent_script.yaml

@@ -27,11 +27,17 @@ spec:
           - |
             set -e
             mkdir -p /config/custom_components/ollama_conversation
-            cp -r /opt/mikrobi/custom_components/ollama_conversation/* /config/custom_components/ollama_conversation/
+            ls -la /opt/mikrobi/ || echo "mikrobi volume not found"
+            [ -f /opt/mikrobi/ollama_conversation__init__.py ] && cp /opt/mikrobi/ollama_conversation__init__.py /config/custom_components/ollama_conversation/__init__.py || echo "init py not found"
+            [ -f /opt/mikrobi/ollama_conversation__conversation.py ] && cp /opt/mikrobi/ollama_conversation__conversation.py /config/custom_components/ollama_conversation/conversation.py || echo "conversation py not found"
+            [ -f /opt/mikrobi/ollama_conversation__config_flow.py ] && cp /opt/mikrobi/ollama_conversation__config_flow.py /config/custom_components/ollama_conversation/config_flow.py || echo "config_flow py not found"
+            [ -f /opt/mikrobi/ollama_conversation__manifest.json ] && cp /opt/mikrobi/ollama_conversation__manifest.json /config/custom_components/ollama_conversation/manifest.json || echo "manifest json not found"
+            [ -f /opt/mikrobi/ollama_conversation__strings.json ] && cp /opt/mikrobi/ollama_conversation__strings.json /config/custom_components/ollama_conversation/strings.json || echo "strings json not found"
+            [ -f /opt/mikrobi/ollama_conversation__tools.py ] && cp /opt/mikrobi/ollama_conversation__tools.py /config/custom_components/ollama_conversation/tools.py || echo "tools py not found"
+            [ -f /opt/mikrobi/ollama_conversation__tool_executor.py ] && cp /opt/mikrobi/ollama_conversation__tool_executor.py /config/custom_components/ollama_conversation/tool_executor.py || echo "tool_executor py not found"
             mkdir -p /config/.storage
-            if [ ! -f /config/.storage/assist_pipeline.pipelines ]; then
-              cp /opt/mikrobi/.storage/assist_pipeline.pipelines /config/.storage/assist_pipeline.pipelines
-            fi
+            [ -f /opt/mikrobi/assist_pipeline.pipelines ] && [ ! -f /config/.storage/assist_pipeline.pipelines ] && cp /opt/mikrobi/assist_pipeline.pipelines /config/.storage/assist_pipeline.pipelines || echo "pipeline file handled"
+            echo "bootstrap completed"
         volumeMounts:
         - name: config
           mountPath: /config
