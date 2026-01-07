@@ -1,6 +1,0 @@
-# Scenes configuration
-# Example scene
-- name: Evening Mode
-  entities:
-    light.living_room: on
-    light.bedroom: off
