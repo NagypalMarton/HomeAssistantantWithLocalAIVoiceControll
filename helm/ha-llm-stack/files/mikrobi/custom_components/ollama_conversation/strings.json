@@ -1,0 +1,18 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ollama beállítása",
+        "description": "Konfiguráld az Ollama connection-t",
+        "data": {
+          "host": "Ollama Host URL",
+          "model": "Model neve"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Érvénytelen URL",
+      "unknown": "Ismeretlen hiba"
+    }
+  }
+}

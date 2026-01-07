@@ -18,6 +18,25 @@ spec:
         {{- include "ha-llm-stack.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: home-assistant
     spec:
+      initContainers:
+      - name: bootstrap-mikrobi
+        image: busybox:1.36
+        command:
+          - sh
+          - -c
+          - |
+            set -e
+            mkdir -p /config/custom_components/ollama_conversation
+            cp -r /opt/mikrobi/custom_components/ollama_conversation/* /config/custom_components/ollama_conversation/
+            mkdir -p /config/.storage
+            if [ ! -f /config/.storage/assist_pipeline.pipelines ]; then
+              cp /opt/mikrobi/.storage/assist_pipeline.pipelines /config/.storage/assist_pipeline.pipelines
+            fi
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: mikrobi-config
+          mountPath: /opt/mikrobi
       containers:
       - name: home-assistant
         image: "{{ .Values.homeAssistant.image.repository }}:{{ .Values.homeAssistant.image.tag }}"
@@ -54,4 +73,7 @@ spec:
         {{- else }}
         emptyDir: {}
         {{- end }}
+      - name: mikrobi-config
+        configMap:
+          name: {{ include "ha-llm-stack.fullname" . }}-mikrobi-config
 {{- end }}

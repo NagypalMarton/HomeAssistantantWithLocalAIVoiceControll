@@ -1,0 +1,22 @@
+{{- if .Values.homeAssistant.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ha-llm-stack.fullname" . }}-mikrobi-config
+  labels:
+    {{- include "ha-llm-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: home-assistant
+data:
+  custom_components/ollama_conversation/__init__.py: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/__init__.py" | indent 4 }}
+  custom_components/ollama_conversation/conversation.py: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/conversation.py" | indent 4 }}
+  custom_components/ollama_conversation/config_flow.py: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/config_flow.py" | indent 4 }}
+  custom_components/ollama_conversation/manifest.json: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/manifest.json" | indent 4 }}
+  custom_components/ollama_conversation/strings.json: |
+{{ .Files.Get "files/mikrobi/custom_components/ollama_conversation/strings.json" | indent 4 }}
+  .storage/assist_pipeline.pipelines: |
+{{ .Files.Get "files/mikrobi/.storage/assist_pipeline.pipelines" | indent 4 }}
+{{- end }}
