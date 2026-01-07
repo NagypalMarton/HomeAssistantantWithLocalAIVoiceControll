@@ -37,8 +37,12 @@ class OllamaConversationAgent(conversation.AbstractConversationAgent):
         self, user_input: conversation.ConversationInput
     ) -> conversation.ConversationResult:
         """Process a sentence."""
+        from datetime import datetime, timedelta
+
         host = self.entry.data[CONF_HOST]
-        model = self.entry.data.get("model", "llama3.2:3b")
+        model = self.entry.data.get("model", "ministral-3:3b-instruct-2512-q4_K_M")
+        current_date = datetime.utcnow().strftime("%Y-%m-%d")
+        yesterday_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
         
         _LOGGER.debug("Processing: %s", user_input.text)
 
@@ -49,12 +53,12 @@ class OllamaConversationAgent(conversation.AbstractConversationAgent):
                         f"{host}/api/generate",
                         json={
                             "model": model,
-                            "prompt": f"""You are a helpful smart home assistant for Home Assistant.
-Answer concisely in Hungarian (magyar nyelven válaszolj).
-You can help with controlling smart home devices and answering questions.
-
-User: {user_input.text}
-Assistant:""",
+                            "prompt": (
+                                f"[SYSTEM_PROMPT]You are Ministral-3-3B-Instruct-2512, a Large Language Model (LLM) by Mistral AI. "
+                                f"The current date is {current_date}. Yesterday's date is {yesterday_date}. "
+                                f"Respond in the user's language. You cannot browse the web. Use tools if available; if not, explain you cannot perform the action.[/SYSTEM_PROMPT]\n"
+                                f"[INST]{user_input.text}[/INST]"
+                            ),
                             "stream": False,
                             "temperature": 0.4,
                             "num_predict": 150,

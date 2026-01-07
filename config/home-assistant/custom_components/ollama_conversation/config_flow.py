@@ -16,7 +16,7 @@ DOMAIN = "ollama_conversation"
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST, default="http://ollama:11434"): str,
-        vol.Required("model", default="llama3.2:3b"): str,
+        vol.Required("model", default="ministral-3:3b-instruct-2512-q4_K_M"): str,
     }
 )
 

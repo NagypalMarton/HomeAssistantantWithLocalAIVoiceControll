@@ -26,7 +26,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 context={"source": "import"},
                 data={
                     CONF_HOST: "http://ollama:11434",
-                    "model": "llama3.2:3b",
+                    "model": "ministral-3:3b-instruct-2512-q4_K_M",
                 },
             )
         )

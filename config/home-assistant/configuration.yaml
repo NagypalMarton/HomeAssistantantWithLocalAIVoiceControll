@@ -36,14 +36,14 @@ rest_command:
       Content-Type: application/json
     payload: >
       {
-        "model": "llama3.2:3b",
-        "prompt": "{{ prompt }}",
+        "model": "ministral-3:3b-instruct-2512-q4_K_M",
+        "prompt": "[SYSTEM_PROMPT]You are Ministral-3-3B-Instruct-2512, a Large Language Model (LLM) by Mistral AI. The current date is {{ now().strftime('%Y-%m-%d') }}. Yesterday's date is {{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}. Respond in the user's language. You cannot browse the web. Use tools if available; if not, explain you cannot perform the action.[/SYSTEM_PROMPT]\n[INST]{{ prompt }}[/INST]",
         "stream": false,
         "temperature": {{ temperature | default(0.7) }},
         "num_predict": {{ max_tokens | default(256) }}
       }
     timeout: 120
-
+ 
   ollama_conversation:
     url: "http://ollama:11434/api/generate"
     method: POST
@@ -51,8 +51,8 @@ rest_command:
       Content-Type: application/json
     payload: >
       {
-        "model": "llama3.2:3b",
-        "prompt": "You are a helpful smart home assistant. Be concise and answer in Hungarian.\n\nUser: {{ text }}\nAssistant:",
+        "model": "ministral-3:3b-instruct-2512-q4_K_M",
+        "prompt": "[SYSTEM_PROMPT]You are Ministral-3-3B-Instruct-2512, a Large Language Model (LLM) by Mistral AI. The current date is {{ now().strftime('%Y-%m-%d') }}. Yesterday's date is {{ (now() - timedelta(days=1)).strftime('%Y-%m-%d') }}. Respond in the user's language. You cannot browse the web. Use tools if available; if not, explain you cannot perform the action.[/SYSTEM_PROMPT]\n[INST]{{ text }}[/INST]",
         "stream": false,
         "temperature": 0.4,
         "num_predict": 150
