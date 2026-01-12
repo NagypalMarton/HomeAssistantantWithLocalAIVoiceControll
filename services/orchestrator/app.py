@@ -243,3 +243,8 @@ async def config_status():
         "configured": is_configured,
         "forward_url": forward_url if is_configured else None
     })
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8003)
