@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  config:
+    build: ./services/config
+    container_name: config
+    volumes:
+      - config_data:/app/config
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  wakeword:
+    build: ./services/wakeword
+    container_name: wakeword
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8003/wake
+      - STT_URL=http://stt:8002/transcribe
+      - WAKEWORD_MODEL_PATH=${WAKEWORD_MODEL_PATH:-}
+      - WAKEWORD_WORD=${WAKEWORD_WORD:-mikrobi}
+      - SAMPLE_RATE=16000
+      - DETECTION_WINDOW_MS=1200
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+    depends_on:
+      - stt
+    restart: unless-stopped
+
+  stt:
+    build: ./services/stt
+    container_name: stt
+    volumes:
+      - stt_models:/app/models
+    restart: unless-stopped
+
+  piper:
+    build: ./services/piper
+    container_name: piper
+    volumes:
+      - piper_voices:/app/voices
+    restart: unless-stopped
+
+  orchestrator:
+    build: ./services/orchestrator
+    container_name: orchestrator
+    environment:
+      - STT_URL=http://stt:8002/transcribe
+      - PIPER_TTS_URL=http://piper:5000/speak
+      - RECORD_SECONDS=${RECORD_SECONDS:-5}
+      - SAMPLE_RATE=16000
+    volumes:
+      - config_data:/app/config
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+    depends_on:
+      - stt
+      - piper
+    restart: unless-stopped
+
+volumes:
+  stt_models:
+  piper_voices:
+  config_data:

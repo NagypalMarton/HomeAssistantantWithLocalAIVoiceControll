@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroPi Sound Control - Konfigurálás</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: monospace;
+        }
+        
+        input[type="text"]:focus,
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .help-text {
+            color: #888;
+            font-size: 12px;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .status.configured {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #999;
+        }
+        
+        .status.configured .status-dot {
+            background: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ MicroPi Sound Control</h1>
+        <p class="subtitle">Konfiguráljon egy feldolgozó konténert az indításhoz</p>
+        
+        <form id="configForm">
+            <div class="form-group">
+                <label for="forwardUrl">FORWARD_URL</label>
+                <input
+                    type="url"
+                    id="forwardUrl"
+                    name="forwardUrl"
+                    placeholder="http://localhost:8080/handle"
+                    required
+                >
+                <div class="help-text">
+                    🔗 A szöveg feldolgozásáért felelős konténer URL-je<br>
+                    Pl.: ChatGPT API wrapper, Home Assistant, saját NLP engine
+                </div>
+            </div>
+            
+            <button type="submit">💾 Konfiguráció Mentése & Indítás</button>
+        </form>
+        
+        <div id="message" class="message"></div>
+        <div id="status" class="status"></div>
+    </div>
+    
+    <script>
+        // Load existing config
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                if (data.forward_url) {
+                    document.getElementById('forwardUrl').value = data.forward_url;
+                    updateStatus(true);
+                } else {
+                    updateStatus(false);
+                }
+            } catch (error) {
+                console.error('Hiba a konfiguráció betöltésekor:', error);
+            }
+        }
+        
+        // Update status display
+        function updateStatus(isConfigured) {
+            const statusEl = document.getElementById('status');
+            if (isConfigured) {
+                statusEl.className = 'status configured';
+                statusEl.innerHTML = '<span class="status-dot"></span>Konfigurálva - az orchestrator fut';
+            } else {
+                statusEl.className = 'status';
+                statusEl.innerHTML = '<span class="status-dot"></span>Konfigurálásra vár...';
+            }
+        }
+        
+        // Show message
+        function showMessage(text, type) {
+            const msgEl = document.getElementById('message');
+            msgEl.textContent = text;
+            msgEl.className = 'message ' + type;
+            if (type === 'success') {
+                setTimeout(() => {
+                    msgEl.className = 'message';
+                }, 3000);
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const forwardUrl = document.getElementById('forwardUrl').value.trim();
+            const button = e.target.querySelector('button');
+            
+            if (!forwardUrl) {
+                showMessage('❌ URL-t kell megadni!', 'error');
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = '⏳ Mentés...';
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ forward_url: forwardUrl })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    showMessage('❌ ' + (error.detail || 'Hiba a mentéskor'), 'error');
+                    button.disabled = false;
+                    button.textContent = '💾 Konfiguráció Mentése & Indítás';
+                    return;
+                }
+                
+                showMessage('✅ Konfiguráció mentve! Az orchestrator elindul...', 'success');
+                updateStatus(true);
+                button.disabled = false;
+                button.textContent = '💾 Konfiguráció Mentése & Indítás';
+            } catch (error) {
+                showMessage('❌ Hálózati hiba: ' + error.message, 'error');
+                button.disabled = false;
+                button.textContent = '💾 Konfiguráció Mentése & Indítás';
+            }
+        });
+        
+        // Load config on page load
+        loadConfig();
+    </script>
+</body>
+</html>

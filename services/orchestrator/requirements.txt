@@ -1,0 +1,7 @@
+fastapi==0.115.0
+uvicorn==0.32.0
+aiohttp==3.10.10
+numpy==1.26.4
+sounddevice==0.4.6
+webrtcvad==2.0.10
+pydub==0.25.1
