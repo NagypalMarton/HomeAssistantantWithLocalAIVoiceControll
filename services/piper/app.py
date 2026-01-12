@@ -1,68 +1,119 @@
+#!/usr/bin/env python3
+"""
+Wyoming-Piper TTS service
+Magyar anna hang
+"""
+import asyncio
+import logging
 import os
+from functools import partial
+
+from wyoming.audio import AudioChunk, AudioStart, AudioStop
+from wyoming.event import Event
+from wyoming.info import Attribution, Info, TtsProgram, TtsVoice
+from wyoming.server import AsyncEventHandler, AsyncServer
+from wyoming.tts import Synthesize
+
+import wave
 import io
-import subprocess
-import tempfile
-from fastapi import FastAPI
-from fastapi.responses import Response, JSONResponse
-from pydantic import BaseModel
+from piper import PiperVoice
 
-app = FastAPI()
+_LOGGER = logging.getLogger(__name__)
 
-# Voice paths
-VOICES_DIR = os.getenv("VOICES_DIR", "/app/voices")
-VOICE_HU = os.path.join(VOICES_DIR, "hu_HU-berta-medium.onnx")
-VOICE_EN = os.path.join(VOICES_DIR, "en_US-lessac-medium.onnx")
+# Magyar anna hang
+VOICE_MODEL = os.getenv("PIPER_VOICE", "hu_HU-anna-medium")
 
 
-class SpeakRequest(BaseModel):
-    text: str
-    language: str = "auto"  # auto, hu, en
-
-
-@app.post("/speak")
-async def speak(req: SpeakRequest):
-    # Auto-detect language based on first characters
-    lang = req.language.lower()
-    if lang == "auto":
-        # Simple heuristic: check if text contains Hungarian-specific characters
-        if any(c in req.text for c in "áéíóöőúüű"):
-            lang = "hu"
-        else:
-            lang = "en"
+class PiperEventHandler(AsyncEventHandler):
+    """Event handler for Wyoming protocol"""
     
-    voice_path = VOICE_HU if lang == "hu" else VOICE_EN
-    
-    if not os.path.exists(voice_path):
-        print(f"[piper] Voice file not found: {voice_path}")
-        return JSONResponse({"error": f"Voice file not found: {lang}"}, status_code=500)
-    
-    # Create temporary file for output
-    with tempfile.TemporaryDirectory() as tmpdir:
-        output_path = os.path.join(tmpdir, "output.wav")
+    def __init__(self, wyoming_info: Info, voice: PiperVoice, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wyoming_info = wyoming_info
+        self.voice = voice
         
-        try:
-            # Run piper binary
-            result = subprocess.run(
-                ["piper", "--model", voice_path, "--output_file", output_path],
-                input=req.text.encode('utf-8'),
-                capture_output=True,
-                check=True
+    async def handle_event(self, event: Event) -> bool:
+        if Synthesize.is_type(event.type):
+            synthesize = Synthesize.from_event(event)
+            _LOGGER.debug(f"Synthesizing: {synthesize.text}")
+            
+            # Send audio start
+            await self.write_event(
+                AudioStart(
+                    rate=self.voice.config.sample_rate,
+                    width=2,  # 16-bit
+                    channels=1,
+                ).event()
             )
             
-            # Read generated WAV
-            with open(output_path, "rb") as f:
-                wav_data = f.read()
+            # Generate audio in chunks
+            audio_bytes = bytes()
+            for audio_chunk in self.voice.synthesize_stream_raw(synthesize.text):
+                audio_bytes += audio_chunk
+                
+                # Send in chunks
+                await self.write_event(
+                    AudioChunk(
+                        audio=audio_chunk,
+                        rate=self.voice.config.sample_rate,
+                        width=2,
+                        channels=1,
+                    ).event()
+                )
             
-            return Response(content=wav_data, media_type="audio/wav")
-        
-        except subprocess.CalledProcessError as e:
-            print(f"[piper] TTS error: {e.stderr.decode('utf-8')}")
-            return JSONResponse({"error": "TTS failed"}, status_code=500)
-        except FileNotFoundError:
-            print(f"[piper] Output file not created")
-            return JSONResponse({"error": "TTS processing failed"}, status_code=500)
+            # Send audio stop
+            await self.write_event(AudioStop().event())
+            _LOGGER.info(f"Synthesized {len(audio_bytes)} bytes")
+            
+        return True
 
 
-@app.get("/health")
-async def health():
-    return JSONResponse({"status": "ok", "voices": ["hu", "en"]})
+async def main():
+    """Main entry point"""
+    logging.basicConfig(level=logging.INFO)
+    _LOGGER.info(f"Loading Piper voice: {VOICE_MODEL}")
+    
+    # Load voice
+    voice = PiperVoice.load(
+        model_path=f"/data/{VOICE_MODEL}.onnx",
+        config_path=f"/data/{VOICE_MODEL}.onnx.json",
+    )
+    
+    _LOGGER.info("Voice loaded successfully")
+    
+    # Wyoming info
+    wyoming_info = Info(
+        tts=[
+            TtsProgram(
+                name="piper",
+                description="Piper TTS for Wyoming",
+                attribution=Attribution(
+                    name="Rhasspy",
+                    url="https://github.com/rhasspy/piper"
+                ),
+                installed=True,
+                voices=[
+                    TtsVoice(
+                        name=VOICE_MODEL,
+                        description="Hungarian Anna voice",
+                        attribution=Attribution(
+                            name="Rhasspy",
+                            url="https://github.com/rhasspy/piper"
+                        ),
+                        installed=True,
+                        languages=["hu"],
+                    )
+                ],
+            )
+        ],
+    )
+    
+    # Start server
+    server = AsyncServer.from_uri("tcp://0.0.0.0:10200")
+    _LOGGER.info("Starting Wyoming Piper server on tcp://0.0.0.0:10200")
+    
+    await server.run(partial(PiperEventHandler, wyoming_info, voice))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

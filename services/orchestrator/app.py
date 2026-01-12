@@ -1,61 +1,291 @@
+#!/usr/bin/env python3
+"""
+Orchestrator service
+Integrates Wyoming services with Home Assistant Conversation API
+"""
+import asyncio
+import logging
 import os
 import io
-import time
-import json
-import asyncio
+import wave
 import numpy as np
 import sounddevice as sd
-import webrtcvad
-import threading
-from pathlib import Path
-from pydub import AudioSegment
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+
+from wyoming.asr import Transcribe, Transcript
+from wyoming.audio import AudioChunk, AudioStart, AudioStop
+from wyoming.client import AsyncClient
+from wyoming.tts import Synthesize
+from wyoming.wake import Detect, Detection
+
 import aiohttp
 
-# Configuration constants
+_LOGGER = logging.getLogger(__name__)
+
+# Configuration
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
 RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
-STT_URL = os.getenv("STT_URL", "http://stt:8002/transcribe")
-PIPER_TTS_URL = os.getenv("PIPER_TTS_URL", "")
-CONFIG_FILE = Path("/app/config/forward_url.json")
+STT_URI = os.getenv("STT_URI", "tcp://stt:10300")
+TTS_URI = os.getenv("TTS_URI", "tcp://piper:10200")
+WAKEWORD_URI = os.getenv("WAKEWORD_URI", "tcp://wakeword:10400")
+HA_URL = os.getenv("HA_URL", "http://homeassistant:8123")
+HA_TOKEN = os.getenv("HA_TOKEN", "")
 
-# Magic constants
-HTTP_TIMEOUT = 30  # seconds
-VAD_AGGRESSIVENESS = 2
 
-app = FastAPI()
-
-vad = webrtcvad.Vad(VAD_AGGRESSIVENESS)
-
-# Thread-safe config management
-class ConfigManager:
-    def __init__(self):
-        self.forward_url = ""
-        self.lock = threading.RLock()
+async def record_audio(duration: float) -> bytes:
+    """Record audio from microphone"""
+    _LOGGER.info(f"Recording for {duration} seconds...")
     
-    def get(self) -> str:
-        with self.lock:
-            return self.forward_url
+    # Record audio
+    audio = sd.rec(
+        int(duration * SAMPLE_RATE),
+        samplerate=SAMPLE_RATE,
+        channels=1,
+        dtype='int16'
+    )
+    sd.wait()
     
-    def set(self, url: str):
-        with self.lock:
-            self.forward_url = url
+    # Convert to WAV format
+    wav_io = io.BytesIO()
+    with wave.open(wav_io, 'wb') as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)  # 16-bit
+        wav_file.setframerate(SAMPLE_RATE)
+        wav_file.writeframes(audio.tobytes())
     
-    def load_from_file(self) -> str:
-        with self.lock:
-            if CONFIG_FILE.exists():
-                try:
-                    with open(CONFIG_FILE, "r") as f:
-                        config = json.load(f)
-                        self.forward_url = config.get("forward_url", "").strip()
-                        print(f"[orchestrator] FORWARD_URL betöltve: {self.forward_url}")
-                        return self.forward_url
-                except Exception as e:
-                    print(f"[orchestrator] Config betöltési hiba: {e}")
-            return ""
+    return wav_io.getvalue()
 
-config_mgr = ConfigManager()
+
+async def transcribe_with_stt(audio_bytes: bytes) -> str:
+    """Transcribe audio using Wyoming STT"""
+    _LOGGER.info("Transcribing audio...")
+    
+    try:
+        async with AsyncClient.from_uri(STT_URI) as client:
+            # Send audio
+            await client.write_event(AudioStart(rate=SAMPLE_RATE, width=2, channels=1).event())
+            
+            # Send audio in chunks
+            chunk_size = 8192
+            for i in range(0, len(audio_bytes), chunk_size):
+                chunk = audio_bytes[i:i + chunk_size]
+                await client.write_event(
+                    AudioChunk(audio=chunk, rate=SAMPLE_RATE, width=2, channels=1).event()
+                )
+            
+            await client.write_event(AudioStop().event())
+            await client.write_event(Transcribe().event())
+            
+            # Wait for transcript
+            while True:
+                event = await client.read_event()
+                if event is None:
+                    break
+                    
+                if Transcript.is_type(event.type):
+                    transcript = Transcript.from_event(event)
+                    _LOGGER.info(f"Transcript: {transcript.text}")
+                    return transcript.text
+                    
+        return ""
+    except Exception as e:
+        _LOGGER.error(f"STT error: {e}")
+        return ""
+
+
+async def send_to_home_assistant(text: str) -> str:
+    """Send text to Home Assistant Conversation API"""
+    _LOGGER.info(f"Sending to Home Assistant: {text}")
+    
+    if not HA_TOKEN:
+        _LOGGER.error("HA_TOKEN not configured!")
+        return "Rendszer nincs konfigurálva. Állítsa be a Home Assistant tokent."
+    
+    url = f"{HA_URL}/api/conversation/process"
+    headers = {
+        "Authorization": f"Bearer {HA_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "text": text,
+        "language": "hu"
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    _LOGGER.error(f"Home Assistant error: {resp.status}")
+                    text = await resp.text()
+                    _LOGGER.error(f"Response: {text}")
+                    return "Sajnálom, a Home Assistant nem válaszolt megfelelően."
+                
+                result = await resp.json()
+                
+                # Extract response text
+                response_text = result.get("response", {}).get("speech", {}).get("plain", {}).get("speech", "")
+                
+                if not response_text:
+                    _LOGGER.warning("Empty response from Home Assistant")
+                    return "Nem kaptam választ a Home Assistant-tól."
+                
+                _LOGGER.info(f"Home Assistant response: {response_text}")
+                return response_text
+                
+    except aiohttp.ClientConnectorError as e:
+        _LOGGER.error(f"Cannot connect to Home Assistant: {e}")
+        return "Nem tudok csatlakozni a Home Assistant-hoz."
+    except asyncio.TimeoutError:
+        _LOGGER.error("Home Assistant timeout")
+        return "A Home Assistant nem válaszolt időben."
+    except Exception as e:
+        _LOGGER.error(f"Home Assistant error: {e}")
+        return "Hiba történt a Home Assistant kommunikáció során."
+
+
+async def speak_with_tts(text: str):
+    """Speak text using Wyoming TTS"""
+    _LOGGER.info(f"Speaking: {text}")
+    
+    try:
+        async with AsyncClient.from_uri(TTS_URI) as client:
+            # Request synthesis
+            await client.write_event(Synthesize(text=text).event())
+            
+            # Collect audio
+            audio_bytes = bytearray()
+            
+            while True:
+                event = await client.read_event()
+                if event is None:
+                    break
+                    
+                if AudioChunk.is_type(event.type):
+                    chunk = AudioChunk.from_event(event)
+                    audio_bytes.extend(chunk.audio)
+                    
+                elif AudioStop.is_type(event.type):
+                    break
+            
+            if audio_bytes:
+                # Play audio
+                audio_array = np.frombuffer(bytes(audio_bytes), dtype=np.int16).astype(np.float32) / 32768.0
+                sd.play(audio_array, samplerate=SAMPLE_RATE)
+                sd.wait()
+                _LOGGER.info("Playback finished")
+            else:
+                _LOGGER.warning("No audio received from TTS")
+                
+    except Exception as e:
+        _LOGGER.error(f"TTS error: {e}")
+
+
+async def listen_for_wake_word():
+    """Listen for wake word from Wyoming WakeWord service"""
+    _LOGGER.info("Listening for wake word...")
+    
+    # Open microphone stream
+    chunk_size = 1024
+    
+    try:
+        async with AsyncClient.from_uri(WAKEWORD_URI) as client:
+            # Start detection
+            await client.write_event(Detect().event())
+            
+            # Stream audio from microphone
+            def audio_callback(indata, frames, time_info, status):
+                if status:
+                    _LOGGER.warning(f"Audio status: {status}")
+                # Queue audio for Wyoming
+                audio_bytes = indata.copy().tobytes()
+                asyncio.create_task(
+                    client.write_event(
+                        AudioChunk(
+                            audio=audio_bytes,
+                            rate=SAMPLE_RATE,
+                            width=2,
+                            channels=1
+                        ).event()
+                    )
+                )
+            
+            # Start audio stream
+            stream = sd.InputStream(
+                samplerate=SAMPLE_RATE,
+                channels=1,
+                dtype='int16',
+                blocksize=chunk_size,
+                callback=audio_callback
+            )
+            
+            with stream:
+                # Wait for detection
+                while True:
+                    event = await client.read_event()
+                    if event is None:
+                        break
+                        
+                    if Detection.is_type(event.type):
+                        detection = Detection.from_event(event)
+                        _LOGGER.info(f"Wake word detected: {detection.name}")
+                        stream.stop()
+                        return True
+                        
+    except Exception as e:
+        _LOGGER.error(f"Wake word detection error: {e}")
+        return False
+
+
+async def handle_wake_event():
+    """Handle wake word event: record -> transcribe -> HA -> speak"""
+    _LOGGER.info("Wake word detected! Starting interaction...")
+    
+    # Record audio
+    audio_bytes = await record_audio(RECORD_SECONDS)
+    
+    # Transcribe
+    text = await transcribe_with_stt(audio_bytes)
+    
+    if not text:
+        await speak_with_tts("Sajnálom, nem értettem.")
+        return
+    
+    # Send to Home Assistant
+    response = await send_to_home_assistant(text)
+    
+    # Speak response
+    await speak_with_tts(response)
+
+
+async def main():
+    """Main loop"""
+    logging.basicConfig(level=logging.INFO)
+    _LOGGER.info("Orchestrator starting...")
+    
+    # Check configuration
+    if not HA_TOKEN:
+        _LOGGER.warning("HA_TOKEN not set! Set environment variable HA_TOKEN")
+    
+    _LOGGER.info(f"STT URI: {STT_URI}")
+    _LOGGER.info(f"TTS URI: {TTS_URI}")
+    _LOGGER.info(f"Wake word URI: {WAKEWORD_URI}")
+    _LOGGER.info(f"Home Assistant URL: {HA_URL}")
+    
+    # Main loop: listen for wake word
+    while True:
+        try:
+            detected = await listen_for_wake_word()
+            if detected:
+                await handle_wake_event()
+        except KeyboardInterrupt:
+            _LOGGER.info("Shutting down...")
+            break
+        except Exception as e:
+            _LOGGER.error(f"Error in main loop: {e}")
+            await asyncio.sleep(1)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 
 def load_config():

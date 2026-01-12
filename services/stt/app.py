@@ -1,74 +1,131 @@
-import io
-import tempfile
+#!/usr/bin/env python3
+"""
+Wyoming-Whisper STT service
+Magyar nyelv támogatással, tiny model
+"""
+import asyncio
+import logging
 import os
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
-from pydub import AudioSegment
-import whisper
-import torch
+from functools import partial
 
-app = FastAPI()
+from wyoming.asr import Transcribe, Transcript
+from wyoming.audio import AudioChunk, AudioStart, AudioStop
+from wyoming.event import Event
+from wyoming.info import AsrModel, AsrProgram, Attribution, Info
+from wyoming.server import AsyncEventHandler, AsyncServer
 
-# 🇭🇺 Magyar-specifikus STT optimalizáció Pi 4-hez (ARM64/aarch64)
-MODEL_SIZE = "tiny"          # legkisebb, leggyorsabb (~400 MB RAM)
-LANGUAGE = "hu"              # MAGYAR FIX (nem auto)
-SAMPLE_RATE = 16000          # Whisper native: 16 kHz (8 kHz upsampling veszteség)
+from faster_whisper import WhisperModel
 
-# CPU-only mode (ARM64 Raspberry Pi)
-torch.set_num_threads(2)      # CPU thread limit
-model = whisper.load_model(MODEL_SIZE, device="cpu")
+_LOGGER = logging.getLogger(__name__)
 
-@app.post("/transcribe")
-async def transcribe(file: UploadFile = File(...)):
-    try:
-        raw = await file.read()
-        if not raw:
-            return JSONResponse({"error": "Empty file"}, status_code=400)
-        
-        audio = AudioSegment.from_file(io.BytesIO(raw))
-    except Exception as e:
-        print(f"[stt] Audio format error: {e}")
-        return JSONResponse({"error": "Invalid audio format"}, status_code=400)
+# Magyar nyelv + tiny model
+MODEL_NAME = os.getenv("WHISPER_MODEL", "tiny")
+LANGUAGE = os.getenv("WHISPER_LANGUAGE", "hu")
+BEAM_SIZE = int(os.getenv("BEAM_SIZE", "1"))
+
+class WhisperEventHandler(AsyncEventHandler):
+    """Event handler for Wyoming protocol"""
     
-    try:
-        # Whisper native: 16 kHz, mono
-        audio = audio.set_frame_rate(SAMPLE_RATE).set_channels(1)
-
-        # OpenAI Whisper fájl path-ot vár (nem BytesIO)
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            audio.export(tmp.name, format="wav")
-            tmp_path = tmp.name
+    def __init__(self, wyoming_info: Info, model: WhisperModel, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wyoming_info = wyoming_info
+        self.model = model
+        self.audio_buffer = bytes()
         
-        try:
-            # Magyar-specifikus transzkripció (ARM64 optimalizált)
-            result = model.transcribe(
-                tmp_path,
-                language=LANGUAGE,
-                fp16=False,           # CPU mode (no FP16 on ARM)
-                condition_on_previous_text=False,  # gyorsabb
-                temperature=0.0,      # deterministic
+    async def handle_event(self, event: Event) -> bool:
+        if AudioStart.is_type(event.type):
+            self.audio_buffer = bytes()
+            _LOGGER.debug("Audio stream started")
+            
+        elif AudioChunk.is_type(event.type):
+            chunk = AudioChunk.from_event(event)
+            self.audio_buffer += chunk.audio
+            
+        elif AudioStop.is_type(event.type):
+            _LOGGER.debug("Audio stream stopped, transcribing...")
+            
+            # Convert to format Whisper expects
+            import io
+            import wave
+            import numpy as np
+            
+            # Audio buffer to numpy array (16-bit PCM to float32)
+            audio_array = np.frombuffer(self.audio_buffer, dtype=np.int16).astype(np.float32) / 32768.0
+            
+            # Transcribe
+            segments, info = await asyncio.get_event_loop().run_in_executor(
+                None,
+                partial(
+                    self.model.transcribe,
+                    audio_array,
+                    language=LANGUAGE,
+                    beam_size=BEAM_SIZE,
+                    vad_filter=True,
+                )
             )
             
-            text = result["text"].strip()
-            return JSONResponse({
-                "text": text,
-                "language": "hu",
-                "sample_rate": SAMPLE_RATE
-            })
-        finally:
-            # Cleanup temp file
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-    except Exception as e:
-        print(f"[stt] Transcription error: {e}")
-        return JSONResponse({"error": "Transcription failed"}, status_code=500)
+            # Collect all segments
+            text = " ".join([segment.text for segment in segments]).strip()
+            _LOGGER.info(f"Transcription: {text}")
+            
+            # Send transcript
+            await self.write_event(Transcript(text=text).event())
+            
+        elif Transcribe.is_type(event.type):
+            # Direct transcription request (not streaming)
+            pass
+            
+        return True
 
-@app.get("/health")
-async def health():
-    return JSONResponse({
-        "status": "ok",
-        "language": "hu",
-        "sample_rate": f"{SAMPLE_RATE} Hz",
-        "model": MODEL_SIZE,
-        "backend": "openai-whisper (ARM64)"
-    })
+
+async def main():
+    """Main entry point"""
+    logging.basicConfig(level=logging.INFO)
+    _LOGGER.info(f"Loading Whisper model: {MODEL_NAME} (language: {LANGUAGE})")
+    
+    # Load model (CPU)
+    model = WhisperModel(
+        MODEL_NAME,
+        device="cpu",
+        compute_type="int8",
+        download_root="/data"
+    )
+    
+    _LOGGER.info("Model loaded successfully")
+    
+    # Wyoming info
+    wyoming_info = Info(
+        asr=[
+            AsrProgram(
+                name="faster-whisper",
+                description="Whisper ASR for Wyoming",
+                attribution=Attribution(
+                    name="Systran",
+                    url="https://github.com/SYSTRAN/faster-whisper"
+                ),
+                installed=True,
+                models=[
+                    AsrModel(
+                        name=MODEL_NAME,
+                        description=f"Whisper {MODEL_NAME} model",
+                        attribution=Attribution(
+                            name="OpenAI",
+                            url="https://github.com/openai/whisper"
+                        ),
+                        installed=True,
+                        languages=[LANGUAGE],
+                    )
+                ],
+            )
+        ],
+    )
+    
+    # Start server
+    server = AsyncServer.from_uri("tcp://0.0.0.0:10300")
+    _LOGGER.info("Starting Wyoming Whisper server on tcp://0.0.0.0:10300")
+    
+    await server.run(partial(WhisperEventHandler, wyoming_info, model))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
