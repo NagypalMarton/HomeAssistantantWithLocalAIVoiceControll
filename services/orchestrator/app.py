@@ -7,7 +7,9 @@ import asyncio
 import logging
 import os
 import io
+import json
 import wave
+from pathlib import Path
 import numpy as np
 import sounddevice as sd
 
@@ -27,8 +29,27 @@ RECORD_SECONDS = int(os.getenv("RECORD_SECONDS", "5"))
 STT_URI = os.getenv("STT_URI", "tcp://stt:10300")
 TTS_URI = os.getenv("TTS_URI", "tcp://piper:10200")
 WAKEWORD_URI = os.getenv("WAKEWORD_URI", "tcp://wakeword:10400")
-HA_URL = os.getenv("HA_URL", "http://homeassistant:8123")
-HA_TOKEN = os.getenv("HA_TOKEN", "")
+CONFIG_FILE = Path(os.getenv("CONFIG_FILE", "/app/config/ha_config.json"))
+
+# These will be loaded from config file
+HA_URL = ""
+HA_TOKEN = ""
+
+
+def load_ha_config():
+    """Load Home Assistant configuration from file"""
+    global HA_URL, HA_TOKEN
+    try:
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+                HA_URL = config.get("ha_url", "").strip()
+                HA_TOKEN = config.get("ha_token", "").strip()
+                _LOGGER.info(f"Home Assistant config loaded: {HA_URL}")
+                return True
+    except Exception as e:
+        _LOGGER.error(f"Error loading HA config: {e}")
+    return False
 
 
 async def record_audio(duration: float) -> bytes:
@@ -98,7 +119,11 @@ async def send_to_home_assistant(text: str) -> str:
     
     if not HA_TOKEN:
         _LOGGER.error("HA_TOKEN not configured!")
-        return "Rendszer nincs konfigurálva. Állítsa be a Home Assistant tokent."
+        return "Rendszer nincs konfigurálva. Nyisson meg egy weboldalt a konfiguráláshoz: http://localhost:8000"
+    
+    if not HA_URL:
+        _LOGGER.error("HA_URL not configured!")
+        return "Home Assistant URL nincs beállítva."
     
     url = f"{HA_URL}/api/conversation/process"
     headers = {
@@ -261,9 +286,23 @@ async def main():
     logging.basicConfig(level=logging.INFO)
     _LOGGER.info("Orchestrator starting...")
     
-    # Check configuration
-    if not HA_TOKEN:
-        _LOGGER.warning("HA_TOKEN not set! Set environment variable HA_TOKEN")
+    # Load Home Assistant configuration
+    _LOGGER.info(f"Config file: {CONFIG_FILE}")
+    
+    # Wait for config file
+    max_wait = 30
+    waited = 0
+    while waited < max_wait:
+        if load_ha_config():
+            break
+        _LOGGER.info(f"Waiting for HA config ({waited}/{max_wait}s)...")
+        await asyncio.sleep(2)
+        waited += 2
+    
+    if not HA_TOKEN or not HA_URL:
+        _LOGGER.error("Home Assistant configuration not found!")
+        _LOGGER.error("Please configure at http://localhost:8000")
+        # Continue anyway - might get configured later
     
     _LOGGER.info(f"STT URI: {STT_URI}")
     _LOGGER.info(f"TTS URI: {TTS_URI}")

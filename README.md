@@ -11,6 +11,7 @@ Docker-alapú hangvezérelt rendszer Raspberry Pi-hez, amely Wyoming protokollt 
 - **Wyoming-OpenWakeWord**: "Alexa" ébresztőszó detektálás
 - **Wyoming-Whisper**: Speech-to-Text (STT) magyar nyelv támogatással (tiny model)
 - **Wyoming-Piper**: Text-to-Speech (TTS) magyar Anna hanggal
+- **Config Web**: Home Assistant konfiguráció (TOKEN + URL) webes felületen
 - **Orchestrator**: Koordinálja a szolgáltatásokat és kommunikál a Home Assistant-tal
 
 ## 🚀 Gyors indítás
@@ -20,35 +21,8 @@ Docker-alapú hangvezérelt rendszer Raspberry Pi-hez, amely Wyoming protokollt 
 - Docker és Docker Compose telepítve
 - Raspberry Pi vagy Linux számítógép mikrofonnal és hangszóróval
 - **Home Assistant instance** futó API hozzáféréssel
-- Home Assistant **Long-Lived Access Token**
 
-### 2. Home Assistant Token megszerzése
-
-1. Nyisd meg Home Assistant-ot
-2. Kattints a profil ikonra (bal alsó sarokban)
-3. Görgess le a "Long-Lived Access Tokens" részhez
-4. Kattints "Create Token" gombra
-5. Add neki egy nevet (pl. "MicroPi Voice")
-6. Másold ki a tokent (csak egyszer jelenik meg!)
-
-### 3. Környezeti változók beállítása
-
-Hozz létre egy `.env` fájlt a projekt gyökérkönyvtárában:
-
-```bash
-# Home Assistant konfiguráció
-HA_URL=http://192.168.1.100:8123
-HA_TOKEN=your_long_lived_access_token_here
-
-# Opcionális beállítások
-RECORD_SECONDS=5
-```
-
-**Fontos:** Cseréld ki:
-- `http://192.168.1.100:8123` - Home Assistant URL címére
-- `your_long_lived_access_token_here` - A Home Assistant token-re
-
-### 4. Rendszer indítása
+### 2. Rendszer indítása
 
 ```bash
 cd /home/nagypal.marton/Documents/MicroPiSoundControl
@@ -57,6 +31,32 @@ docker compose up
 ```
 
 **Első indulás ideje:** ~5-10 perc (modell letöltések)
+
+### 3. Home Assistant Konfigurálása (Webfelületen)
+
+1. **Nyisd meg a konfigurációs weboldalt:**
+   ```
+   http://localhost:8000
+   ```
+   vagy Raspberry Pi IP-jével:
+   ```
+   http://<raspberry-pi-ip>:8000
+   ```
+
+2. **Szerezd meg a Home Assistant Long-Lived Access Token-t:**
+   - Nyisd meg Home Assistant-ot
+   - Kattints a profil ikonra (bal alsó sarokban)
+   - Görgess le a "Long-Lived Access Tokens" részhez
+   - Kattints "Create Token" gombra
+   - Add neki egy nevet (pl. "MicroPi Voice")
+   - **Másold ki a tokent** (csak egyszer jelenik meg!)
+
+3. **Töltsd ki a konfigurációs oldalt:**
+   - **Home Assistant URL**: `http://192.168.1.100:8123` (cseréld ki a tényleges IP-re/doménre)
+   - **Token**: Az 2. lépésből másolt token
+   - Kattints "Konfiguráció Mentése" gombra
+
+✅ **Kész!** Az orchestrator automatikusan csatlakozik a Home Assistant-hoz
 
 ## 🎯 Használat
 
@@ -112,37 +112,30 @@ Mikrofon → Wyoming-OpenWakeWord (Alexa detektálás)
 
 ## ⚙️ Környezeti változók
 
-### Kötelező
+### Docker Compose (opcionális)
+
+Az `.env` fájl már **nem szükséges**, mivel az orchestrator a webes felületen konfigurálható!
+
+Azonban opcionálisan módosítható:
 
 ```bash
-# Home Assistant konfiguráció
-HA_URL=http://192.168.1.100:8123
-HA_TOKEN=your_long_lived_access_token
-```
+# .env fájl (ha szeretnéd módosítani az alapértelmezéseket)
 
-### Opcionális
+# Audio beállítások
+SAMPLE_RATE=16000
+RECORD_SECONDS=5
 
-```bash
-# Általános beállítások
-SAMPLE_RATE=16000         # Audio mintavételezési frekvencia
-RECORD_SECONDS=5          # Felvétel hossza ébresztőszó után
+# Whisper finomhangolás
+WHISPER_MODEL=tiny
+WHISPER_LANGUAGE=hu
+BEAM_SIZE=1
 
-# Wyoming service URI-k (ha más portokat használsz)
-STT_URI=tcp://stt:10300
-TTS_URI=tcp://piper:10200
-WAKEWORD_URI=tcp://wakeword:10400
+# Piper finomhangolás
+PIPER_VOICE=hu_HU-anna-medium
 
-# Whisper konfiguráció
-WHISPER_MODEL=tiny        # tiny/base/small/medium/large
-WHISPER_LANGUAGE=hu       # hu/en
-BEAM_SIZE=1               # 1-5 (magasabb = pontosabb, de lassabb)
-
-# Piper konfiguráció
-PIPER_VOICE=hu_HU-anna-medium  # Magyar Anna hang
-
-# OpenWakeWord konfiguráció
-WAKE_WORD=alexa           # Ébresztőszó
-THRESHOLD=0.5             # Detektálási érzékenység (0.0-1.0)
+# OpenWakeWord finomhangolás
+WAKE_WORD=alexa
+THRESHOLD=0.5
 ```
 
 ## 🔧 Home Assistant beállítás
@@ -181,45 +174,45 @@ Ezek automatikusan integrálódnak a Conversation API-val.
 
 ## 🐛 Hibaelhárítás
 
-### 1. "HA_TOKEN not configured"
+### 1. Konfiguráció weboldal nem érhető el
 ```bash
-# Ellenőrizd a .env fájlt
-cat .env
-# Győződj meg róla, hogy HA_TOKEN értéke helyes
-# Újraindítás környezeti változókkal
-docker compose down
-docker compose up
+# Ellenőrizd, hogy a config konténer fut-e
+docker ps | grep config
+
+# Logok megtekintése
+docker logs config
 ```
 
-### 2. "Cannot connect to Home Assistant"
+### 2. "Rendszer nincs konfigurálva" hibaüzenet
+- Nyisd meg `http://localhost:8000`
+- Töltsd ki a Home Assistant URL-t és tokent
+- Kattints "Konfiguráció Mentése" gombra
+
+### 3. "Nem tudok csatlakozni a Home Assistant-hoz"
 ```bash
-# Ellenőrizd a Home Assistant elérhetőségét
+# Ellenőrizd a Home Assistant URL-t
 curl http://192.168.1.100:8123/api/
 
-# Ellenőrizd a hálózati kapcsolatot
-docker exec orchestrator ping homeassistant
-
-# Ellenőrizd a HA_URL értékét
-docker exec orchestrator printenv HA_URL
+# Ellenőrizd a tokent (helyesírás, karakterek)
+# A tokennek legalább 20 karakter hosszúnak kell lennie
 ```
 
-### 3. Wake word nem érzékelhető
+### 4. Wake word nem érzékelhető
 ```bash
 # Ellenőrizd a mikrofon működését
 docker exec -it orchestrator python -c "import sounddevice as sd; print(sd.query_devices())"
 
-# Csökkentsd a threshold értéket
-# .env fájlban:
+# Csökkentsd a threshold értéket az .env-ben:
 THRESHOLD=0.3
 
 # Újraindítás
 docker compose restart wakeword
 ```
 
-### 4. STT nem működik / rossz transzkripció
+### 5. STT nem működik / rossz transzkripció
 ```bash
 # Nagyobb model használata (lassabb, de pontosabb)
-# .env fájlban:
+# docker-compose.yml-ben:
 WHISPER_MODEL=base
 
 # Beam size növelése
@@ -228,7 +221,7 @@ BEAM_SIZE=3
 docker compose restart stt
 ```
 
-### 5. Logok megtekintése
+### 6. Logok megtekintése
 ```bash
 # Összes szolgáltatás
 docker compose logs -f
@@ -238,6 +231,7 @@ docker compose logs -f orchestrator
 docker compose logs -f stt
 docker compose logs -f piper
 docker compose logs -f wakeword
+docker compose logs -f config
 ```
 
 ## 🔄 Wyoming Protokoll
@@ -252,11 +246,18 @@ A rendszer a [Wyoming protokollt](https://github.com/rhasspy/wyoming) használja
 
 | Service | Port | Protokoll |
 |---------|------|-----------|
+| Config Web | 8000 | HTTP |
 | Wyoming-Whisper (STT) | 10300 | TCP |
 | Wyoming-Piper (TTS) | 10200 | TCP |
 | Wyoming-OpenWakeWord | 10400 | TCP |
 
 ## 📦 Szolgáltatások részletei
+
+### Config Web (Port: 8000)
+- Flask webserver
+- Home Assistant URL és TOKEN konfigurálása
+- Webes UI magyar nyelvű
+- Konfigurációs fájl: `/app/config/ha_config.json`
 
 ### Whisper (STT)
 - **Backend**: faster-whisper
@@ -276,32 +277,33 @@ A rendszer a [Wyoming protokollt](https://github.com/rhasspy/wyoming) használja
 - **Sample rate**: 16000 Hz
 - **Threshold**: 0.5 (alapértelmezett)
 
-## 📝 Konfiguráció példák
+## 📁 Fájlstruktúra
 
-### .env fájl teljes példa
-
-```bash
-# === KÖTELEZŐ ===
-# Home Assistant konfiguráció
-HA_URL=http://192.168.1.100:8123
-HA_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
-
-# === OPCIONÁLIS ===
-# Audio beállítások
-SAMPLE_RATE=16000
-RECORD_SECONDS=7
-
-# Whisper finomhangolás
-WHISPER_MODEL=base
-WHISPER_LANGUAGE=hu
-BEAM_SIZE=2
-
-# Piper finomhangolás  
-PIPER_VOICE=hu_HU-anna-medium
-
-# Wake word finomhangolás
-WAKE_WORD=alexa
-THRESHOLD=0.4
+```
+MicroPiSoundControl/
+├── docker-compose.yml
+├── README.md
+└── services/
+    ├── config/
+    │   ├── Dockerfile
+    │   ├── requirements.txt
+    │   └── app.py             # Flask konfiguráció app
+    ├── wakeword/
+    │   ├── Dockerfile
+    │   ├── requirements.txt
+    │   └── app.py
+    ├── stt/
+    │   ├── Dockerfile
+    │   ├── requirements.txt
+    │   └── app.py
+    ├── piper/
+    │   ├── Dockerfile
+    │   ├── requirements.txt
+    │   └── app.py
+    └── orchestrator/
+        ├── Dockerfile
+        ├── requirements.txt
+        └── app.py
 ```
 
 ## 🚀 Fejlesztési ötletek

@@ -1,6 +1,19 @@
 version: "3.8"
 
 services:
+  config:
+    build: ./services/config
+    container_name: config
+    environment:
+      - CONFIG_DIR=/app/config
+    volumes:
+      - config_data:/app/config
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - wyoming
+
   wakeword:
     build: ./services/wakeword
     container_name: wakeword
@@ -42,12 +55,13 @@ services:
       - STT_URI=tcp://stt:10300
       - TTS_URI=tcp://piper:10200
       - WAKEWORD_URI=tcp://wakeword:10400
-      - HA_URL=${HA_URL:-http://homeassistant:8123}
-      - HA_TOKEN=${HA_TOKEN}
+      - CONFIG_FILE=/app/config/ha_config.json
     devices:
       - /dev/snd:/dev/snd
     group_add:
       - audio
+    volumes:
+      - config_data:/app/config
     depends_on:
       - stt
       - piper
@@ -62,3 +76,4 @@ networks:
 
 volumes:
   whisper_data:
+  config_data:
