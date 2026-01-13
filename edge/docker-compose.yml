@@ -18,6 +18,8 @@ services:
     environment:
       - WAKE_WORD=alexa
       - THRESHOLD=0.5
+    volumes:
+      - wakeword_models:/root/.local/share/openwakeword
     restart: unless-stopped
     networks:
       - wyoming
@@ -75,3 +77,4 @@ networks:
 volumes:
   whisper_data:
   config_data:
+  wakeword_models:

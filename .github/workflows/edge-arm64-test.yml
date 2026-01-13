@@ -148,7 +148,7 @@ jobs:
           cd edge
           echo "Building all services for ARM64 using docker compose..."
           export DOCKER_DEFAULT_PLATFORM=linux/arm64
-          docker compose build --progress=plain
+          docker compose build --no-cache --progress=plain
           echo "✓ docker compose build completed successfully"
       
       - name: Verify built images

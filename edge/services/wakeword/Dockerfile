@@ -11,9 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py /app/
 
-# Pre-download Alexa wake word model
-RUN python -c "from openwakeword.model import Model; Model(wakeword_models=['alexa'])"
-
 ENV PYTHONUNBUFFERED=1
 EXPOSE 10400
 
