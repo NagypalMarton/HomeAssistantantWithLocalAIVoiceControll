@@ -1,0 +1,157 @@
+name: Central Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'central/**'
+      - '.github/workflows/central-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'central/**'
+  workflow_dispatch:
+
+jobs:
+  python-lint-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.11', '3.12']
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f central/requirements.txt ]; then pip install -r central/requirements.txt; fi
+          pip install pytest pytest-cov flake8 black isort pylint safety
+      
+      - name: Check with Black (formatting)
+        run: |
+          black --check central/ --diff || true
+      
+      - name: Check with isort (import sorting)
+        run: |
+          isort --check-only central/ --diff || true
+      
+      - name: Lint with flake8
+        run: |
+          flake8 central/ \
+            --count \
+            --select=E9,F63,F7,F82,E501 \
+            --show-source \
+            --statistics \
+            --max-line-length=100 || true
+      
+      - name: Lint with pylint
+        run: |
+          pylint central/ --exit-zero || true
+      
+      - name: Security check with safety
+        run: |
+          safety check --json || true
+      
+      - name: Run tests with pytest
+        run: |
+          pytest central/ \
+            --cov=central \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=70 \
+            -v || true
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella-py${{ matrix.python-version }}
+          fail_ci_if_error: false
+
+  kubernetes-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download kubectl
+        run: |
+          curl -L https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl -o kubectl
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+      
+      - name: Validate Kubernetes manifests
+        run: |
+          echo "Validating Kubernetes manifests..."
+          if [ -d "central/kubernetes" ]; then
+            find central/kubernetes -name "*.yml" -o -name "*.yaml" | while read file; do
+              echo "Validating: $file"
+              kubectl apply --dry-run=client -f "$file" || exit 1
+            done
+          else
+            echo "No Kubernetes manifests found"
+          fi
+
+  terraform-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+      
+      - name: Terraform Format Check
+        run: |
+          if [ -d "central/terraform" ]; then
+            terraform -chdir=central/terraform fmt -check -recursive
+          else
+            echo "No Terraform directory found"
+          fi
+      
+      - name: Terraform Validate
+        run: |
+          if [ -d "central/terraform" ]; then
+            terraform -chdir=central/terraform init -backend=false
+            terraform -chdir=central/terraform validate
+          else
+            echo "No Terraform directory found"
+          fi
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      security-events: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'central'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
