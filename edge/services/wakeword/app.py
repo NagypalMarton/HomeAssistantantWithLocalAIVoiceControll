@@ -67,9 +67,9 @@ async def main():
     logging.basicConfig(level=logging.INFO)
     _LOGGER.info(f"Loading OpenWakeWord model: {WAKE_WORD}")
     
-    # Load model - will auto-download on first run
-    # openwakeword downloads models to ~/.local/share/openwakeword/ on first use
-    model = Model(wakeword_models=None)  # Download all default models including alexa
+    # Load model - downloads on first run and caches under ~/.local/share/openwakeword/
+    wake_models = [WAKE_WORD] if WAKE_WORD else ["alexa"]
+    model = Model(wakeword_models=wake_models)
     
     _LOGGER.info("Model loaded successfully")
     

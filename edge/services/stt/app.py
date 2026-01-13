@@ -113,6 +113,7 @@ async def main():
                             url="https://github.com/openai/whisper"
                         ),
                         installed=True,
+                        version="1.0.0",
                         languages=[LANGUAGE],
                     )
                 ],
