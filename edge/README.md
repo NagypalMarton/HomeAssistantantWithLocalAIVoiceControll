@@ -1,9 +1,8 @@
 # MicroPiSoundControl
 
-[![Edge ARM64 Tests](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml/badge.svg?branch=main)](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml)
-[![Edge AMD64 Tests](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml/badge.svg?branch=main)](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml)
-[![Edge CI](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml/badge.svg?branch=main)](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml)
-
+[![Edge Services CI](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml)
+[![Edge ARM64 Raspberry Pi Testing](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml)
+[![Edge AMD64 Integration Testing](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml)
 🎙️ Wyoming Protocol alapú hangvezérelt asszisztens rendszer Home Assistant integrációval
 
 ## Áttekintés
