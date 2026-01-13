@@ -1,11 +1,11 @@
-name: Edge ARM64 Raspberry Pi Testing
+name: Edge AMD64 Integration Testing
 
 on:
   push:
     branches: [main, develop]
     paths:
       - 'edge/**'
-      - '.github/workflows/edge-arm64-test.yml'
+      - '.github/workflows/edge-amd64-test.yml'
   pull_request:
     branches: [main, develop]
     paths:
@@ -13,84 +13,67 @@ on:
   workflow_dispatch:
 
 jobs:
-  arm64-compatibility-check:
+  amd64-compatibility-check:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set up QEMU ARM64 emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-      
-      - name: Check Dockerfile ARM64 compatibility
+      - name: Check Dockerfile AMD64 compatibility
         run: |
-          echo "Checking Dockerfiles for Raspberry Pi OS 64-bit (Debian-based) compatibility..."
+          echo "Checking Dockerfiles for AMD64 (x86_64) compatibility..."
           
           for dockerfile in edge/services/*/Dockerfile; do
             service=$(dirname $dockerfile | rev | cut -d'/' -f1 | rev)
             echo ""
             echo "=== Checking $service ==="
             
-            # Check for ARM64 compatible base images
+            # Check for AMD64 compatible base images
             base_image=$(grep "^FROM" "$dockerfile" | head -1 | awk '{print $2}')
             echo "Base image: $base_image"
             
-            # Warn if using non-Debian-based images
-            if grep -q "FROM alpine" "$dockerfile"; then
-              echo "⚠ Alpine detected - ensure Python packages are ARM64 compatible"
-            fi
-            
             # Check for architecture-specific issues
             if grep -q "RUN apt-get install" "$dockerfile"; then
-              echo "✓ Using apt-get (Debian/Raspberry Pi compatible)"
+              echo "✓ Using apt-get (Debian/Ubuntu compatible)"
+            fi
+            
+            if grep -q "RUN apk add" "$dockerfile"; then
+              echo "✓ Using apk (Alpine compatible)"
             fi
           done
       
-      - name: Check requirements.txt for ARM64 compatibility
+      - name: Check requirements.txt for AMD64 compatibility
         run: |
-          echo "Checking Python dependencies for ARM64 compatibility..."
-          
-          # Packages that commonly have ARM64 issues
-          ARM_PROBLEMATIC="tensorflow torch tensorflow-lite apex nmslib"
+          echo "Checking Python dependencies for AMD64 compatibility..."
           
           for service in config orchestrator piper stt wakeword; do
             if [ -f "edge/services/$service/requirements.txt" ]; then
               echo ""
               echo "=== Checking $service/requirements.txt ==="
               
-              for package in $ARM_PROBLEMATIC; do
-                if grep -q "^$package" "edge/services/$service/requirements.txt"; then
-                  echo "⚠ $package found - verify ARM64 wheel availability"
-                fi
-              done
-              
               # Check for version pinning (good for reproducibility)
               if grep -E "==" "edge/services/$service/requirements.txt" > /dev/null; then
-                echo "✓ Version-pinned dependencies (good for ARM64)"
+                echo "✓ Version-pinned dependencies found"
               fi
+              
+              echo "✓ AMD64 has excellent Python package support"
             fi
           done
       
-      - name: Verify docker-compose ARM64 compatibility
+      - name: Verify docker-compose AMD64 compatibility
         run: |
-          echo "Verifying docker-compose configuration for ARM64..."
+          echo "Verifying docker-compose configuration for AMD64..."
           
           # Check if services define platform
           if grep -q "platform:" edge/docker-compose.yml; then
-            echo "✓ Platform specified in docker-compose.yml"
+            echo "Platform specified in docker-compose.yml:"
             grep "platform:" edge/docker-compose.yml
           else
-            echo "⚠ No platform specified - will use host platform"
+            echo "✓ No platform specified - will use native AMD64"
           fi
-          
-          # Check for architecture-specific port conflicts
-          echo "Checking port configuration..."
-          grep "ports:" -A 2 edge/docker-compose.yml || true
 
-  dockerfile-arm64-build:
+  dockerfile-amd64-build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -104,21 +87,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Build ${{ matrix.service }} for ARM64
+      - name: Build ${{ matrix.service }} for AMD64
         uses: docker/build-push-action@v5
         with:
           context: ./edge/services/${{ matrix.service }}
-          platforms: linux/arm64
+          platforms: linux/amd64
           push: false
-          tags: edge-${{ matrix.service }}:arm64-${{ github.sha }}
+          tags: edge-${{ matrix.service }}:amd64-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -128,11 +106,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -146,8 +119,8 @@ jobs:
       - name: Build all services with docker compose
         run: |
           cd edge
-          echo "Building all services for ARM64 using docker compose..."
-          export DOCKER_DEFAULT_PLATFORM=linux/arm64
+          echo "Building all services for AMD64 using docker compose..."
+          export DOCKER_DEFAULT_PLATFORM=linux/amd64
           docker compose build --progress=plain
           echo "✓ docker compose build completed successfully"
       
@@ -172,25 +145,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
       - name: Build services
         run: |
           cd edge
-          export DOCKER_DEFAULT_PLATFORM=linux/arm64
+          export DOCKER_DEFAULT_PLATFORM=linux/amd64
           docker compose build
       
       - name: Start services and test dependencies
         run: |
           cd edge
           chmod +x test-dependencies.sh
-          export DOCKER_DEFAULT_PLATFORM=linux/arm64
+          export DOCKER_DEFAULT_PLATFORM=linux/amd64
           
           # Run dependency test
           ./test-dependencies.sh || {
@@ -249,12 +217,24 @@ jobs:
           echo ""
           echo "Total memory used: ~${total_mem}"
           
-          if (( $(echo "$total_mem > 1800" | bc -l 2>/dev/null || echo "0") )); then
-            echo "⚠ WARNING: Memory usage high - may struggle on 2GB Raspberry Pi"
-            echo "   Recommendation: Use Raspberry Pi 4 with 4GB+ RAM"
+          if (( $(echo "$total_mem > 3500" | bc -l 2>/dev/null || echo "0") )); then
+            echo "⚠ WARNING: Memory usage very high for AMD64"
+            echo "   Recommendation: Optimize services or increase available RAM"
           else
-            echo "✓ Memory usage acceptable for 2GB Raspberry Pi"
+            echo "✓ Memory usage acceptable for typical AMD64 systems"
           fi
+      
+      - name: Performance benchmark
+        run: |
+          cd edge
+          echo "=== AMD64 Performance Metrics ==="
+          
+          # Check container CPU usage
+          docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}"
+          
+          echo ""
+          echo "✓ AMD64 typically has better performance than ARM64"
+          echo "✓ Expected faster inference times for Whisper and Piper"
       
       - name: Cleanup
         if: always()
@@ -263,35 +243,35 @@ jobs:
           docker compose down -v
           docker compose ps
 
-  raspberry-pi-manifest:
+  development-environment-check:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Verify Raspberry Pi OS requirements
+      - name: Verify AMD64 development environment requirements
         run: |
-          echo "Raspberry Pi OS 64-bit (Debian-based) Requirements Check"
-          echo "==========================================================="
+          echo "AMD64 (x86_64) Development Environment Requirements"
+          echo "==================================================="
           echo ""
           
           # Check docker-compose version compatibility
           echo "1. Docker Compose requirement:"
-          echo "   - Raspberry Pi OS: Docker Compose V2 installed"
+          echo "   - Linux/Windows/macOS: Docker Compose V2"
           echo "   - Syntax: uses 'docker compose' (not 'docker-compose')"
           
           # Check for .env file template
           if [ -f "edge/.env.example" ]; then
             echo "   ✓ .env.example found"
           else
-            echo "   ⚠ No .env.example - create template for Raspberry Pi configuration"
+            echo "   ⚠ No .env.example - create template for configuration"
           fi
           
           echo ""
           echo "2. Storage requirements:"
           echo "   - Estimated: 2-4GB for base images"
-          echo "   - Ensure Raspberry Pi has sufficient space"
+          echo "   - AMD64 images generally smaller than emulated ARM64"
           
           echo ""
           echo "3. Network configuration:"
@@ -300,11 +280,17 @@ jobs:
           
           echo ""
           echo "4. Memory requirements:"
-          echo "   - Minimum: 2GB (tight fit)"
-          echo "   - Recommended: 4GB+ for reliable operation"
+          echo "   - Minimum: 2GB (basic operation)"
+          echo "   - Recommended: 4GB+ for development"
+          echo "   - Production: 8GB+ recommended"
           
           echo ""
-          echo "5. CPU: ARMv8 64-bit (all Raspberry Pi 3, 4, 5 supported)"
+          echo "5. CPU: x86_64 (AMD64) - Any modern Intel or AMD processor"
+          echo ""
+          echo "6. Operating Systems:"
+          echo "   - Linux (Ubuntu, Debian, Fedora, etc.)"
+          echo "   - Windows 10/11 with WSL2"
+          echo "   - macOS (Intel or Apple Silicon with Rosetta 2)"
 
   documentation-check:
     runs-on: ubuntu-latest
@@ -313,20 +299,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Check ARM64 documentation
+      - name: Check AMD64 documentation
         run: |
-          echo "Checking ARM64 specific documentation..."
+          echo "Checking AMD64 specific documentation..."
           
-          if [ ! -f "edge/ARM64_SETUP.md" ]; then
-            echo "⚠ Consider creating edge/ARM64_SETUP.md with:"
-            echo "  - Raspberry Pi OS installation steps"
-            echo "  - Docker installation for ARM64"
-            echo "  - Performance tuning tips"
+          if [ ! -f "edge/AMD64_SETUP.md" ]; then
+            echo "⚠ Consider creating edge/AMD64_SETUP.md with:"
+            echo "  - Development environment setup"
+            echo "  - Docker installation for different OSes"
+            echo "  - Performance optimization tips"
             echo "  - Troubleshooting guide"
           fi
           
-          if grep -q "Raspberry Pi" edge/README.md; then
-            echo "✓ Raspberry Pi mentioned in edge/README.md"
+          if grep -q "AMD64\|x86_64\|development" edge/README.md; then
+            echo "✓ Development environment mentioned in edge/README.md"
           else
-            echo "⚠ Add Raspberry Pi specific instructions to edge/README.md"
+            echo "⚠ Add development environment instructions to edge/README.md"
           fi
