@@ -1,5 +1,7 @@
 # Central Backend - MicroPi System
 
+[![Central CI](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/central-ci.yml/badge.svg?branch=main)](https://github.com/nagyp/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/central-ci.yml)
+
 🏗️ Központi backend infrastruktúra (Fejlesztés alatt)
 
 ## Áttekintés
