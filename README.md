@@ -110,34 +110,6 @@ Mikrofon → Wyoming-OpenWakeWord (Alexa detektálás)
          Hangszóró
 ```
 
-## ⚙️ Környezeti változók
-
-### Docker Compose (opcionális)
-
-Az `.env` fájl már **nem szükséges**, mivel az orchestrator a webes felületen konfigurálható!
-
-Azonban opcionálisan módosítható:
-
-```bash
-# .env fájl (ha szeretnéd módosítani az alapértelmezéseket)
-
-# Audio beállítások
-SAMPLE_RATE=16000
-RECORD_SECONDS=5
-
-# Whisper finomhangolás
-WHISPER_MODEL=tiny
-WHISPER_LANGUAGE=hu
-BEAM_SIZE=1
-
-# Piper finomhangolás
-PIPER_VOICE=hu_HU-anna-medium
-
-# OpenWakeWord finomhangolás
-WAKE_WORD=alexa
-THRESHOLD=0.5
-```
-
 ## 🔧 Home Assistant beállítás
 
 A rendszer a **Conversation API**-t használja, amely támogatja:
