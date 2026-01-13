@@ -11,11 +11,13 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download Hungarian anna voice
-RUN mkdir -p /data && \
-    cd /data && \
-    wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx && \
+RUN mkdir -p /data
+
+WORKDIR /data
+RUN wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx && \
     wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx.json
 
+WORKDIR /app
 COPY app.py /app/
 
 ENV PYTHONUNBUFFERED=1
