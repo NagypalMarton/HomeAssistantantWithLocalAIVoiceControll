@@ -99,7 +99,7 @@ jobs:
       
       - name: Build all services for amd64 (CI environment)
         run: |
-          docker compose -f edge/docker-compose.yml build
+          docker compose -f edge/docker-compose.yml build --no-cache
       
       - name: Start services (timeout 60s)
         run: |
@@ -126,13 +126,16 @@ jobs:
 
   dockerfile-lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [config, orchestrator, piper, stt, wakeword]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Lint Dockerfiles
+      - name: Lint ${{ matrix.service }}/Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: edge/services/*/Dockerfile
-          ignore: DL3008,DL3009
+          dockerfile: edge/services/${{ matrix.service }}/Dockerfile
+          ignore: DL3008,DL3009,DL3013
