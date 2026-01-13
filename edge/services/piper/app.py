@@ -101,6 +101,7 @@ async def main():
                             url="https://github.com/rhasspy/piper"
                         ),
                         installed=True,
+                        version="1.0.0",
                         languages=["hu"],
                     )
                 ],
