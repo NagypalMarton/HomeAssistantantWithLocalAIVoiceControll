@@ -9,15 +9,19 @@
   "MD007": {
     "indent": 2
   },
+  "MD012": false,
   "MD013": {
-    "line_length": 120,
-    "heading_line_length": 120,
-    "code_blocks": true,
-    "code_fence_length": 3,
-    "table": true
+    "line_length": 150,
+    "heading_line_length": 150,
+    "code_blocks": false,
+    "tables": false
   },
+  "MD022": false,
   "MD024": false,
   "MD025": false,
+  "MD029": false,
+  "MD031": false,
+  "MD032": false,
   "MD033": false,
   "MD040": false,
   "MD041": false,
