@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+# Szükséges rendszerfüggőségek telepítése
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 2. LÉPÉS: A többi függőség telepítése
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Download Hungarian anna voice
+WORKDIR /data
+RUN wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx && \
+    wget -q https://huggingface.co/rhasspy/piper-voices/resolve/main/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx.json
+
+WORKDIR /app
+COPY app.py /app/
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 10200
+
+CMD ["python", "app.py"]
