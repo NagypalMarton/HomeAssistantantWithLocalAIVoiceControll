@@ -1,309 +1,531 @@
-# MicroPiSoundControl
+# PiSmartSpeaker - Home Assistant Voice Satellite
 
 [![Edge Services CI](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-ci.yml)
 [![Edge ARM64 Raspberry Pi Testing](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-arm64-test.yml)
 [![Edge AMD64 Integration Testing](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/edge-amd64-test.yml)
-🎙️ Wyoming Protocol alapú hangvezérelt asszisztens rendszer Home Assistant integrációval
+
+🎙️ Raspberry Pi alapú hangvezérlésű satellite eszköz magyar nyelvű Home Assistant integrációval
 
 ## Áttekintés
 
-Docker-alapú hangvezérelt rendszer Raspberry Pi-hez, amely Wyoming protokollt használ a szolgáltatások közötti kommunikációra és Home Assistant Conversation API-val integrálódik.
+Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wyoming protokollt használ offline beszédfelismeréshez és szintézishez, majd kommunikál egy cloudban futó Home Assistant LLM-mel.
 
 ### Szolgáltatások
 
-- **Wyoming-OpenWakeWord**: "Alexa" ébresztőszó detektálás
-- **Wyoming-Whisper**: Speech-to-Text (STT) magyar nyelv támogatással (tiny model)
-- **Wyoming-Piper**: Text-to-Speech (TTS) magyar Anna hanggal
-- **Config Web**: Home Assistant konfiguráció (TOKEN + URL) webes felületen
-- **Orchestrator**: Koordinálja a szolgáltatásokat és kommunikál a Home Assistant-tal
+- **Wyoming-OpenWakeWord**: "Hey Jarvis" ébresztőszó felismerés (offline)
+- **Wyoming-Whisper**: Magyar beszédfelismerés (ASR) - tiny-int8 modell (offline)
+- **Wyoming-Piper**: Magyar hangszintézis (TTS) - hu_HU-imre-medium hang (offline)
+- **Wyoming Satellite**: Koordinálja a szolgáltatásokat, mikrofon/hangszóró kezelés
+- **Home Assistant Integration**: LLM-alapú parancsfelismerés és válaszgenerálás (cloud)
 
 ## 🚀 Gyors indítás
 
 ### 1. Előfeltételek
 
-- Docker és Docker Compose telepítve
-- Raspberry Pi vagy Linux számítógép mikrofonnal és hangszóróval
-- **Home Assistant instance** futó API hozzáféréssel
+#### Hardver
+- **Raspberry Pi 4 Model B** (minimum 2GB RAM)
+- **USB mikrofon** (plughw:3,0 - 16kHz, mono, 16-bit PCM)
+- **USB hangszóró** vagy aktív hangszórók (plughw:4,0 - 22050Hz, mono, 16-bit PCM)
+- **16GB+ microSD kártya**
+- **Stabil tápegység** (5V/3A)
+- **Ethernet vagy WiFi** kapcsolat
+
+#### Szoftver
+- **Raspberry Pi OS** (64-bit ajánlott)
+- **Docker Engine** és **Docker Compose** telepítve
+- **Home Assistant** instance cloudban futó LLM-mel és Wyoming Integration-nel
 
 ### 2. Rendszer indítása
 
 ```bash
-cd /home/nagypal.marton/Documents/MicroPiSoundControl
-docker compose build
-docker compose up
+cd edge
+docker compose up -d
 ```
 
 **Első indulás ideje:** ~5-10 perc (modell letöltések)
 
-### 3. Home Assistant Konfigurálása (Webfelületen)
+**Automatikus újraindulás:** A Docker konténerek `restart: unless-stopped` politikával rendelkeznek, így áramkimaradás után automatikusan újraindulnak.
 
-1. **Nyisd meg a konfigurációs weboldalt:**
-   ```
-   http://localhost:8000
-   ```
-   vagy Raspberry Pi IP-jével:
-   ```
-   http://<raspberry-pi-ip>:8000
-   ```
+### 3. Home Assistant Wyoming Integration beállítása
 
-2. **Szerezd meg a Home Assistant Long-Lived Access Token-t:**
-   - Nyisd meg Home Assistant-ot
-   - Kattints a profil ikonra (bal alsó sarokban)
-   - Görgess le a "Long-Lived Access Tokens" részhez
-   - Kattints "Create Token" gombra
-   - Add neki egy nevet (pl. "MicroPi Voice")
-   - **Másold ki a tokent** (csak egyszer jelenik meg!)
+1. **Home Assistant-ban:** Settings → Devices & Services → Add Integration → Wyoming Protocol
+2. **Add meg a satellite adatait:**
+   - **Host**: `<raspberry-pi-ip>`
+   - **Port**: Wyoming Satellite által használt port
+3. **Konfiguráld az LLM-et** a Home Assistant Conversation beállításokban
 
-3. **Töltsd ki a konfigurációs oldalt:**
-   - **Home Assistant URL**: `http://192.168.1.100:8123` (cseréld ki a tényleges IP-re/doménre)
-   - **Token**: Az 2. lépésből másolt token
-   - Kattints "Konfiguráció Mentése" gombra
-
-✅ **Kész!** Az orchestrator automatikusan csatlakozik a Home Assistant-hoz
+✅ **Kész!** A satellite automatikusan csatlakozik a Home Assistant-hoz
 
 ## 🎯 Használat
 
-1. **Várd meg** amíg az összes konténer elindul
-2. **Mondj "Alexa"** - az ébresztőszót
-3. **Várd meg a hangjelzést** (ha van)
-4. **Mondj egy parancsot** magyarul, pl.:
+1. **Várd meg** amíg az összes konténer elindul és a modellek betöltődnek
+2. **Mondj "Hey Jarvis"** - az ébresztőszót (max 500ms késleltetéssel észleli)
+3. **Várd meg a hangjelzést** (opcionális)
+4. **Mondj egy parancsot** magyarul, például:
    - "Kapcsold be a nappali lámpát"
    - "Milyen az időjárás?"
    - "Állítsd 22 fokra a termosztátot"
-5. A rendszer **feldolgozza** és **válaszol** magyarul
+5. A rendszer **feldolgozza** (Whisper STT → Home Assistant LLM → Piper TTS)
+6. A válasz **elhangzik** magyar férfi hanggal (Imre)
+7. **Automatikus visszatérés** az ébresztőszó figyelés állapotába
+
+### Teljesítmény célok (SRS követelmények)
+- **Ébresztőszó felismerés**: max 500ms késleltetés
+- **Beszédfelismerés**: valós idejű (RTF < 0.5)
+- **TTS szintézis**: max 1s késleltetés
+- **Teljes interakció**: < 5s (HA válaszidő nélkül)
+- **Beszédrögzítés vége**: 2 másodperc csend után automatikusan
+
+### Hibakezelés
+- **Home Assistant nem elérhető**: *"A Home Assistant jelenleg nem elérhető."* üzenet
+- **Időtúllépés** (5 másodperc): ugyanaz a hibaüzenet
+- **Automatikus helyreállás**: hibaüzenet után visszatérés idle állapotba
 
 ## 📐 Architektúra
+
+### Rendszer komponensek
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Wyoming Satellite                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  Mikrofon    │  │  Hangszóró   │  │     VAD      │  │
+│  │ (plughw:3,0) │  │ (plughw:4,0) │  │   (Silero)   │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└─────────────┬────────────┬────────────┬─────────────────┘
+              │            │            │
+         ┌────▼────┐  ┌────▼────┐  ┌───▼─────┐
+         │OpenWake │  │ Whisper │  │  Piper  │
+         │  Word   │  │  (ASR)  │  │  (TTS)  │
+         │hey_jarvis│ │tiny-int8│  │hu-imre │
+         └─────────┘  └─────────┘  └─────────┘
+                           │            ▲
+                           │            │
+                      ┌────▼────────────┴─────┐
+                      │   Home Assistant      │
+                      │   (Cloud + LLM)       │
+                      └───────────────────────┘
+```
+
+### Működési folyamat (State Machine)
+
+1. **Idle állapot**: OpenWakeWord folyamatosan figyeli a "Hey Jarvis" ébresztőszót
+2. **Wake**: Ébresztőszó észlelése (max 500ms) → Satellite aktiválás
+3. **Listen**: VAD alapján hangrögzítés, amíg a felhasználó beszél (2s csend után vége)
+4. **Transcribe**: Whisper tiny-int8 offline átalakítja szöveggé a hangot
+5. **Process**: Felismert szöveg elküldése HA LLM-nek Wyoming protokollon keresztül
+6. **Respond**: HA LLM válasz fogadása (5s timeout)
+7. **Speak**: Piper TTS offline lejátssza a választ magyar Imre hanggal
+8. **Return to Idle**: Visszatérés az 1. lépéshez (automatikus)
+
+**Hibakezelés állapot**: Timeout vagy kapcsolódási hiba esetén hibaüzenet lejátszása → Return to Idle
 
 ### Szolgáltatások (Wyoming Protocol)
 
 #### 1. **Wyoming-OpenWakeWord** (TCP: 10400)
-- Ébresztőszó detektálás ("Alexa")
-- Wyoming protokoll audio stream kezelés
-- Beállítható érzékenység (threshold)
+- **Model**: `hey_jarvis.tflite` (egyedi magyar ébresztőszó)
+- **Működés**: Offline, folyamatos audio stream figyelés
+- **Threshold**: Beállítható érzékenység
+- **Teljesítmény**: <500ms késleltetés, max 1 hamis pozitív/óra
 
 #### 2. **Wyoming-Whisper STT** (TCP: 10300)
-- Speech-to-Text magyar nyelv támogatással
-- Faster-Whisper backend (optimalizált)
-- tiny model (gyors, alacsony erőforrásigény)
+- **Backend**: faster-whisper (optimalizált C++ implementáció)
+- **Model**: `tiny-int8` (39M params, ~75MB, quantizált)
+- **Nyelv**: Magyar (hu)
+- **Teljesítmény**: RTF < 0.5 (valós idejű)
+- **Eszköz**: CPU only (Raspberry Pi 4)
 
 #### 3. **Wyoming-Piper TTS** (TCP: 10200)
-- Text-to-Speech magyar Anna hanggal
-- Natív Wyoming protokoll
-- Valós idejű audio streaming
+- **Model**: `hu_HU-imre-medium` (magyar férfi hang)
+- **Format**: ONNX
+- **Sample rate**: 22050 Hz
+- **Minőség**: Közepes (természetes, tisztán érthető)
+- **Működés**: Offline szintézis
+- **Teljesítmény**: <1s késleltetés
 
-#### 4. **Orchestrator**
-- Koordinálja a Wyoming szolgáltatásokat
-- Mikrofon kezelés (felvétel ébresztőszó után)
-- Home Assistant Conversation API integráció
-- Audio lejátszás
+#### 4. **Wyoming Satellite**
+- **Mikrofon**: USB (plughw:3,0), 16kHz, mono, 16-bit PCM
+- **Hangszóró**: USB (plughw:4,0), 22050Hz, mono, 16-bit PCM
+- **VAD**: Voice Activity Detection (Silero)
+- **Koordináció**: Wake Word → STT → HA → TTS pipeline
+- **Timeout**: 5s HA kommunikációra
 
-### Adatfolyam
+### Adatfolyam és protokoll
 
 ```
-Mikrofon → Wyoming-OpenWakeWord (Alexa detektálás)
-              ↓ (wake detected)
-         Orchestrator (felvétel)
-              ↓ (audio)
-         Wyoming-Whisper (STT)
-              ↓ (magyar szöveg)
-         Home Assistant Conversation API
-              ↓ (válasz szöveg)
-         Wyoming-Piper (TTS)
-              ↓ (audio)
-         Hangszóró
+Mikrofon (16kHz) → Wyoming-OpenWakeWord (Hey Jarvis detektálás)
+                         ↓ (wake event, <500ms)
+                    Wyoming Satellite (audio recording + VAD)
+                         ↓ (audio stream, 2s csend után vége)
+                    Wyoming-Whisper (offline STT, RTF<0.5)
+                         ↓ (magyar szöveg)
+                    Home Assistant LLM (cloud, Wyoming protocol)
+                         ↓ (válasz szöveg, 5s timeout)
+                    Wyoming-Piper (offline TTS, <1s)
+                         ↓ (audio stream, 22050Hz)
+                    Hangszóró
+                         ↓
+                    Return to Idle (OpenWakeWord figyelés)
 ```
+
+**Adatvédelem és biztonság:**
+- ❌ **Nem kerül fel a cloud-ba**: Eredeti hangfelvétel (mikrofon audio)
+- ✅ **Fel kerül a cloud-ba**: Felismert szöveg (Whisper output → HA LLM)
+- ✅ **Titkosított kapcsolat**: HTTPS/WSS a Home Assistant felé
+- ✅ **Offline feldolgozás**: Wake Word, STT, TTS helyben fut
 
 ## 🔧 Home Assistant beállítás
 
-A rendszer a **Conversation API**-t használja, amely támogatja:
+A rendszer a **Wyoming Integration** és **Conversation API**-t használja.
 
-### 1. Natív Home Assistant intent kezelés
-Alapértelmezetten elérhető intentek (magyar nyelven is):
-- Eszköz be/kikapcsolás
-- Fény szabályozás
-- Klíma vezérlés
-- stb.
+### 1. Wyoming Integration telepítése
 
-### 2. Custom intentek (opcionális)
+Home Assistant-ban:
+```
+Settings → Devices & Services → Add Integration → Wyoming Protocol
+```
+
+Konfiguráció:
+- **Host**: Raspberry Pi IP címe
+- **Port**: Wyoming Satellite port
+- **SSL**: Nem (helyi hálózat)
+
+### 2. LLM konfiguráció a Conversation API-hoz
+
+A Home Assistant támogatja különböző LLM-eket, amelyek automatikusan integrálódnak:
+
+#### OpenAI ChatGPT
+```yaml
+# configuration.yaml
+openai_conversation:
+  api_key: !secret openai_api_key
+```
+
+#### Google Generative AI
+```yaml
+# configuration.yaml
+google_generative_ai_conversation:
+  api_key: !secret google_api_key
+```
+
+#### Ollama (helyi LLM)
+```yaml
+# configuration.yaml
+ollama:
+  host: http://192.168.1.100:11434
+  model: llama2
+```
+
+### 3. Home Assistant natív intent kezelés
+
+Alapértelmezett intentek magyarul is működnek:
+- Eszköz be/kikapcsolás: *"Kapcsold be a nappali lámpát"*
+- Fény szabályozás: *"Állítsd 50%-ra a hálószoba lámpáját"*
+- Klíma vezérlés: *"Állítsd 22 fokra a termosztátot"*
+- Időjárás lekérdezés: *"Milyen az időjárás?"*
+
+### 4. Custom intentek (opcionális)
 
 `configuration.yaml`:
 ```yaml
 intent_script:
-  TurnOnLight:
+  CustomLightScene:
     speech:
-      text: "Bekapcsoltam a {{ state_attr(area, 'friendly_name') }} lámpáját"
+      text: "Bekapcsoltam a {{ scene }} világítást"
     action:
-      - service: light.turn_on
+      - service: scene.turn_on
         target:
-          area_id: "{{ area }}"
+          entity_id: "scene.{{ scene }}"
 ```
 
-### 3. AI asszisztensek (opcionális)
-
-Home Assistant támogatja:
-- Google Generative AI
-- OpenAI ChatGPT
-- Local LLMs (Ollama, etc.)
-
-Ezek automatikusan integrálódnak a Conversation API-val.
+**Fontos**: A satellite **csak az LLM válaszát játssza le**, egyéb feldolgozás nélkül. A beszélgetési logikát a Home Assistant LLM kezeli.
 
 ## 🐛 Hibaelhárítás
 
-### 1. Konfiguráció weboldal nem érhető el
-```bash
-# Ellenőrizd, hogy a config konténer fut-e
-docker ps | grep config
+### 1. Ébresztőszó ("Hey Jarvis") nem érzékelhető
 
-# Logok megtekintése
-docker logs config
-```
-
-### 2. "Rendszer nincs konfigurálva" hibaüzenet
-- Nyisd meg `http://localhost:8000`
-- Töltsd ki a Home Assistant URL-t és tokent
-- Kattints "Konfiguráció Mentése" gombra
-
-### 3. "Nem tudok csatlakozni a Home Assistant-hoz"
-```bash
-# Ellenőrizd a Home Assistant URL-t
-curl http://192.168.1.100:8123/api/
-
-# Ellenőrizd a tokent (helyesírás, karakterek)
-# A tokennek legalább 20 karakter hosszúnak kell lennie
-```
-
-### 4. Wake word nem érzékelhető
 ```bash
 # Ellenőrizd a mikrofon működését
-docker exec -it orchestrator python -c "import sounddevice as sd; print(sd.query_devices())"
+docker exec -it wyoming-openwakeword python -c "import sounddevice as sd; print(sd.query_devices())"
 
-# Csökkentsd a threshold értéket az .env-ben:
-THRESHOLD=0.3
+# Mikrofon teszt (hang felvétel)
+arecord -D plughw:3,0 -f S16_LE -r 16000 -c 1 -d 5 test.wav
 
-# Újraindítás
-docker compose restart wakeword
+# Logok ellenőrzése
+docker logs wyoming-openwakeword -f
 ```
 
-### 5. STT nem működik / rossz transzkripció
+**Megoldások:**
+- Csökkentsd a threshold értéket (érzékenyebb)
+- Ellenőrizd, hogy a mikrofon device helyes-e (plughw:3,0)
+- Beszélj tisztábban és közelebb a mikrofonhoz
+- **Hamis pozitív arány**: max 1/óra az SRS követelmény szerint
+
+### 2. "A Home Assistant jelenleg nem elérhető" hibaüzenet
+
+Ez a hibaüzenet akkor hangzik el, amikor:
+- A Home Assistant nem válaszol 5 másodpercen belül (timeout)
+- Hálózati kapcsolat megszakadt
+- Wyoming Integration nincs konfigurálva
+
 ```bash
-# Nagyobb model használata (lassabb, de pontosabb)
-# docker-compose.yml-ben:
-WHISPER_MODEL=base
+# Ellenőrizd a hálózati kapcsolatot
+ping <home-assistant-ip>
 
-# Beam size növelése
-BEAM_SIZE=3
+# Ellenőrizd a Wyoming Integration-t HA-ban
+# Settings → Devices & Services → Wyoming Protocol
 
-docker compose restart stt
+# Satellite logok
+docker logs wyoming-satellite -f
 ```
 
-### 6. Logok megtekintése
+**Megoldás:**
+- Konfiguráld a Wyoming Integration-t Home Assistant-ban
+- Ellenőrizd a tűzfal beállításokat
+- Bizonyosodj meg, hogy a HA elérhető az internetről (cloud)
+
+### 3. STT nem működik / rossz transzkripció
+
+```bash
+# Whisper logok ellenőrzése
+docker logs wyoming-whisper -f
+
+# Nagyobb model használata (lassabb, de pontosabb)
+# docker-compose.yml-ben változtasd meg:
+# WHISPER_MODEL=base
+```
+
+**Megjegyzés:** A `tiny-int8` modell optimalizált a gyorsaságra (RTF < 0.5), de időnként kevésbé pontos. Hosszabb szövegeknél vagy zajosabb környezetben `base` vagy `small` modellt érdemes használni.
+
+### 4. TTS hang minősége rossz
+
+```bash
+# Piper logok
+docker logs wyoming-piper -f
+
+# Ellenőrizd, hogy az Imre modell betöltődött-e
+docker exec wyoming-piper ls /data/
+```
+
+A `hu_HU-imre-medium` modell a legjobb egyensúly a sebesség és a minőség között. Ha jobb minőséget szeretnél, próbáld a `hu_HU-imre-high` modellt (lassabb).
+
+### 5. Rendszer nem indul újra áramkimaradás után
+
+```bash
+# Ellenőrizd a restart policy-t
+docker ps -a
+
+# Minden konténernek "unless-stopped" restart policy-nek kell lennie
+docker inspect wyoming-satellite | grep -A 5 RestartPolicy
+```
+
+**Megoldás:** `docker-compose.yml`-ben minden service-nél:
+```yaml
+restart: unless-stopped
+```
+
+### 6. Hangszóró nem játszik le hangot
+
+```bash
+# Hangszóró teszt
+aplay -D plughw:4,0 -f S16_LE -r 22050 -c 1 /usr/share/sounds/alsa/Front_Center.wav
+
+# Volume ellenőrzése
+amixer scontrols
+amixer set Master 80%
+```
+
+### 7. Logok megtekintése
+
 ```bash
 # Összes szolgáltatás
 docker compose logs -f
 
 # Specifikus szolgáltatás
-docker compose logs -f orchestrator
-docker compose logs -f stt
-docker compose logs -f piper
-docker compose logs -f wakeword
-docker compose logs -f config
+docker compose logs -f wyoming-satellite
+docker compose logs -f wyoming-whisper
+docker compose logs -f wyoming-piper
+docker compose logs -f wyoming-openwakeword
 ```
 
 ## 🔄 Wyoming Protokoll
 
 A rendszer a [Wyoming protokollt](https://github.com/rhasspy/wyoming) használja, amely:
 - **Egységes interfész** különböző voice assistant szolgáltatásokhoz
-- **TCP socket alapú** kommunikáció
-- **Event-based** architektúra
-- **Home Assistant natív** támogatás
+- **TCP socket alapú** kommunikáció és event streaming
+- **Event-based** architektúra (wake, audio-start, audio-chunk, audio-stop, transcript, synthesize, stb.)
+- **Home Assistant natív** támogatás (Wyoming Integration)
+- **Offline-first**: Helyi feldolgozás támogatása (STT, TTS, Wake Word)
 
 ### Service portok
 
-| Service | Port | Protokoll |
-|---------|------|-----------|
-| Config Web | 8000 | HTTP |
-| Wyoming-Whisper (STT) | 10300 | TCP |
-| Wyoming-Piper (TTS) | 10200 | TCP |
-| Wyoming-OpenWakeWord | 10400 | TCP |
+| Service | Port | Protokoll | Funkció |
+|---------|------|-----------|---------|
+| Wyoming-OpenWakeWord | 10400 | TCP (Wyoming) | Ébresztőszó felismerés |
+| Wyoming-Whisper (STT) | 10300 | TCP (Wyoming) | Beszédfelismerés |
+| Wyoming-Piper (TTS) | 10200 | TCP (Wyoming) | Hangszintézis |
+| Wyoming Satellite | - | - | Koordinátor (mikrofon/hangszóró) |
+
+### Wyoming Events példa
+
+```
+1. Client → OpenWakeWord: Audio stream (16kHz)
+2. OpenWakeWord → Client: Detection event ("Hey Jarvis")
+3. Client → Whisper: Audio stream (beszéd)
+4. Whisper → Client: Transcript event ("kapcsold be a lámpát")
+5. Client → HA LLM: Text request (Wyoming protocol)
+6. HA LLM → Client: Response ("Bekapcsoltam a nappali lámpáját")
+7. Client → Piper: Synthesize event (szöveg)
+8. Piper → Client: Audio stream (22050Hz, TTS output)
+```
 
 ## 📦 Szolgáltatások részletei
 
-### Config Web (Port: 8000)
-- Flask webserver
-- Home Assistant URL és TOKEN konfigurálása
-- Webes UI magyar nyelvű
-- Konfigurációs fájl: `/app/config/ha_config.json`
+### OpenWakeWord (Port: 10400)
+- **Model**: `hey_jarvis.tflite` (egyedi magyar wake word)
+- **Input**: 16kHz, mono, 16-bit PCM audio stream
+- **Output**: Detection event (wake word detected)
+- **Threshold**: 0.5 (alapértelmezett, beállítható)
+- **Latency**: <500ms (SRS követelmény)
+- **False positive rate**: max 1/óra
 
-### Whisper (STT)
-- **Backend**: faster-whisper
-- **Model**: tiny (39M params, ~75MB)
+### Whisper STT (Port: 10300)
+- **Backend**: faster-whisper (ctranslate2 optimalizáció)
+- **Model**: `tiny-int8` (39M params, ~75MB, INT8 quantized)
 - **Nyelv**: Magyar (hu)
-- **Optimization**: int8 quantization
-- **Eszköz**: CPU only
+- **Input**: 16kHz audio stream (VAD által szegmentált)
+- **Output**: Transcript text (magyar szöveg)
+- **RTF**: <0.5 (valós idejű feldolgozás)
+- **Beam size**: 5 (alapértelmezett)
+- **VAD**: Silero VAD (2s csend után vége)
 
-### Piper (TTS)
-- **Model**: hu_HU-anna-medium
-- **Format**: ONNX
-- **Sample rate**: 22050 Hz
-- **Minőség**: Közepes (gyors + jó minőség egyensúly)
+### Piper TTS (Port: 10200)
+- **Model**: `hu_HU-imre-medium` (magyar férfi hang)
+- **Format**: ONNX (optimalizált inferencia)
+- **Input**: Magyar szöveg (HA LLM válasz)
+- **Output**: 22050Hz, mono, 16-bit PCM audio stream
+- **Quality**: Medium (természetes, tisztán érthető)
+- **Latency**: <1s (SRS követelmény)
+- **Speaker**: Imre (férfi, közép-magyar akcentus)
 
-### OpenWakeWord
-- **Model**: alexa (beépített)
-- **Sample rate**: 16000 Hz
-- **Threshold**: 0.5 (alapértelmezett)
+### Wyoming Satellite
+- **Mikrofon**: USB device (plughw:3,0)
+  - Format: 16kHz, mono, 16-bit PCM
+  - Buffer: Konfigurálható
+- **Hangszóró**: USB device (plughw:4,0)
+  - Format: 22050Hz, mono, 16-bit PCM
+  - Volume: ALSA mixer vezérlés
+- **VAD**: Voice Activity Detection (beszéd szegmentálás)
+  - Engine: Silero VAD
+  - Silence timeout: 2s (befejeződik a felvétel)
+- **Pipeline**: Wake → Record → STT → HA → TTS → Play → Idle
+- **Timeout**: 5s (HA kommunikáció)
+- **Error handling**: "A Home Assistant jelenleg nem elérhető"
+- **Restart policy**: `unless-stopped` (automatikus újraindulás)
 
 ## 📁 Fájlstruktúra
 
 ```
-MicroPiSoundControl/
-├── docker-compose.yml
-├── README.md
-└── services/
-    ├── config/
-    │   ├── Dockerfile
-    │   ├── requirements.txt
-    │   └── app.py             # Flask konfiguráció app
-    ├── wakeword/
-    │   ├── Dockerfile
-    │   ├── requirements.txt
-    │   └── app.py
-    ├── stt/
-    │   ├── Dockerfile
-    │   ├── requirements.txt
-    │   └── app.py
-    ├── piper/
-    │   ├── Dockerfile
-    │   ├── requirements.txt
-    │   └── app.py
-    └── orchestrator/
-        ├── Dockerfile
-        ├── requirements.txt
-        └── app.py
+edge/
+├── docker-compose.yml           # Docker szolgáltatások definíciója
+├── README.md                    # Ez a dokumentáció
+├── SRS.md                       # Software Requirements Specification
+├── test-dependencies.sh         # Függőségek tesztelése
+├── test-health.sh               # Healthcheck script
+├── oww-data/                    # OpenWakeWord adatok (bind mount)
+│   ├── alexa.json              # Alexa model metadata (nem használt)
+│   ├── alexa.tflite            # Alexa model (nem használt)
+│   ├── hey_jarvis.json         # Hey Jarvis model metadata ✅
+│   └── hey_jarvis.tflite       # Hey Jarvis TFLite model ✅
+├── oww-models/                  # OpenWakeWord modellek (bind mount)
+│   ├── alexa.json
+│   ├── alexa.tflite
+│   ├── hey_jarvis.json         # Aktív model ✅
+│   └── hey_jarvis.tflite       # Aktív model ✅
+├── piper-data/                  # Piper TTS adatok (bind mount)
+│   ├── hu_HU-imre-medium.onnx       # TTS model ✅
+│   └── hu_HU-imre-medium.onnx.json  # TTS config ✅
+└── whisper-data/                # Whisper STT adatok (cache volume)
+    └── models--rhasspy--faster-whisper-tiny-int8/
+        ├── blobs/               # Model fájlok
+        ├── refs/                # Git referenciák
+        └── snapshots/           # Model snapshot
+            └── 5b6382e0f4ac867ce9ff24aaa249400a7c6c73d9/
+                ├── config.json          # Whisper config
+                └── vocabulary.txt       # Magyar szókincs
 ```
 
+### Konfiguráció és volumék
+
+- **oww-data/** és **oww-models/**: OpenWakeWord modellek és metaadatok
+  - `hey_jarvis.tflite` - Az aktív ébresztőszó model
+- **piper-data/**: Piper TTS model és konfiguráció
+  - `hu_HU-imre-medium.onnx` - Magyar férfi hang (Imre)
+- **whisper-data/**: Whisper STT model cache
+  - Automatikusan letöltődik első induláskor (Hugging Face)
+  - `tiny-int8` - Gyors és hatékony magyar beszédfelismerés
+
+**Megjegyzés:** A modellek a kötetek (volumes) segítségével perzisztensek maradnak container újraindítás vagy update esetén is.
+
 ## 🚀 Fejlesztési ötletek
 
-- [ ] **Multi-room support**: Több Raspberry Pi különböző szobákban
-- [ ] **Wake word testreszabás**: Magyar "Mikrobi" vagy saját modell
+### Rövid távú fejlesztések
 - [ ] **Streaming STT**: Valós idejű transzkripció Wyoming streaming API-val
-- [ ] **Voice activity detection**: Automatikus felvétel vége detektálás
-- [ ] **Context awareness**: Dialógus történet tárolás
-- [ ] **Több nyelv**: Automatikus nyelvfelismerés és váltás
+- [ ] **Konfigurálható timeout**: 5s helyett felhasználó által beállítható
+- [ ] **LED visszajelzés**: Vizuális jelzés GPIO-n keresztül (Wake, Listen, Think, Speak státuszok)
+- [ ] **Hangjelzés customizálás**: Egyedi hangok Wake és hibaállapotokhoz
+
+### Középtávú fejlesztések
+- [ ] **Multi-room support**: Több Raspberry Pi különböző szobákban, központi koordinációval
+- [ ] **Context awareness**: Dialógus történet tárolása és használata
+- [ ] **Offline fallback intentek**: Alapvető parancsok (pl. timer) offline feldolgozása
+- [ ] **Whisper model váltás**: Automatikus váltás `base` vagy `small` modellre összetett beszéd esetén
+- [ ] **Home Assistant state tracking**: Lokális cache az eszköz állapotokról
+
+### Hosszú távú fejlesztések
+- [ ] **Wake word testreszabás**: Saját magyar wake word tanítása
+- [ ] **Több nyelv támogatása**: Automatikus nyelvfelismerés és váltás
+- [ ] **Lokális LLM integráció**: Alapvető parancsok feldolgozása Raspberry Pi-n (pl. Ollama)
+- [ ] **Voice biometrics**: Felhasználó azonosítása hang alapján
+
+### Teljesítmény optimalizálás
+- [ ] **Model quantization**: További optimalizálás (pl. ONNX Runtime)
+- [ ] **GPU acceleration**: Raspberry Pi 5 Neural Engine használata
+- [ ] **Audio pipeline optimalizálás**: Csökkentett buffer latency
+- [ ] **Parallel processing**: VAD és Wake Word párhuzamos futtatása
+
+## 📊 Teljesítmény követelmények (SRS)
+
+### Funkcionális követelmények teljesítése
+✅ **REQ-F-001-003**: Ébresztőszó felismerés ("Hey Jarvis") offline  
+✅ **REQ-F-004-007**: Magyar beszédfelismerés offline (Whisper tiny-int8, VAD)  
+✅ **REQ-F-008-011**: Home Assistant LLM kommunikáció (Wyoming)  
+✅ **REQ-F-012-014**: Magyar TTS offline (Piper Imre)  
+✅ **REQ-F-015-017**: Hibakezelés (timeout, kapcsolódási hiba)
+
+### Nem-funkcionális követelmények célértékei
+- ⚡ **REQ-NF-001**: Ébresztőszó felismerés <500ms
+- ⚡ **REQ-NF-002**: Beszédfelismerés RTF <0.5
+- ⚡ **REQ-NF-003**: Teljes interakció <5s (HA nélkül)
+- ⚡ **REQ-NF-004**: TTS szintézis <1s
+- 🛡️ **REQ-NF-005**: 99% uptime (helyi hálózat)
+- 🔄 **REQ-NF-006-007**: Automatikus újraindulás (`unless-stopped`)
+- 🔒 **REQ-NF-011-013**: Offline feldolgozás, HTTPS/WSS kapcsolat
+- 🐳 **REQ-NF-014-016**: Docker konténerek, külön volumék, Docker logs
+
+## 🔗 Kapcsolódó dokumentumok
+
+- **[SRS.md](SRS.md)**: Részletes szoftverkövetelmény specifikáció
+- **[docker-compose.yml](docker-compose.yml)**: Docker szolgáltatások konfigurációja
+- **[Wyoming Protocol Documentation](https://github.com/rhasspy/wyoming)**: Hivatalos Wyoming dokumentáció
+- **[Home Assistant Wyoming Integration](https://www.home-assistant.io/integrations/wyoming/)**: HA integráció útmutató
 
 ## 📄 Licenc
 
 MIT
-- `HTTP_TIMEOUT = 30s` - STT, TTS, Forward request timeout
 
-## 🚀 Fejlesztési ötletek
+---
 
-- [ ] **Multi-room support**: Több Raspberry Pi különböző szobákban
-- [ ] **Wake word testreszabás**: Magyar "Mikrobi" vagy saját modell
-- [ ] **Streaming STT**: Valós idejű transzkripció Wyoming streaming API-val
-- [ ] **Voice activity detection**: Automatikus felvétel vége detektálás
-- [ ] **Context awareness**: Dialógus történet tárolás
-- [ ] **Több nyelv**: Automatikus nyelvfelismerés és váltás
-
-## 📄 Licenc
-
-MIT
+**Verzió:** 1.0  
+**Utolsó frissítés:** 2026. január 17.  
+**Szerző:** Nagypal Márton
