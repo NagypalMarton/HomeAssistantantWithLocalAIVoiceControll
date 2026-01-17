@@ -1,36 +1,64 @@
-version: '3.8'
-
 services:
-  # 1. SZÁJ: Piper (Text-to-Speech) 🗣️
-  piper:
-    image: rhasspy/wyoming-piper
-    container_name: wyoming-piper
+  wyoming-openwakeword:
+    image: rhasspy/wyoming-openwakeword:latest
+    container_name: wyoming-openwakeword
     restart: unless-stopped
     ports:
-      - "10200:10200"
+      - "10400:10400"
     volumes:
-      - ./piper_data:/data
-    command: --voice hu_HU-anna-medium
+      - ./oww-models:/models
+    command: >
+      --uri tcp://0.0.0.0:10400
+      --models-dir /models
+      --preload-model hey_jarvis
 
-  # 2. FÜL: Whisper (Speech-to-Text) 👂
-  whisper:
-    image: rhasspy/wyoming-whisper
+  wyoming-whisper:
+    image: rhasspy/wyoming-whisper:latest
     container_name: wyoming-whisper
     restart: unless-stopped
     ports:
       - "10300:10300"
     volumes:
-      - ./whisper_data:/data
-    command: --model tiny-int8 --language hu
+      - ./whisper-data:/data
+    command: >
+      --model tiny-int8
+      --language hu
+      --beam-size 1
+      --uri tcp://0.0.0.0:10300
+      --data-dir /data
+      --download-dir /data
 
-  # 3. FIGYELEM: OpenWakeWord (Ébresztő szó) ⏰
-  wakeword:
-    image: rhasspy/wyoming-openwakeword
-    container_name: wyoming-openwakeword
+  wyoming-piper:
+    image: rhasspy/wyoming-piper:latest
+    container_name: wyoming-piper
     restart: unless-stopped
     ports:
-      - "10400:10400"
-    # Nem feltétlenül kell volume, de ha saját modellt tanítasz, jól jöhet
+      - "10200:10200"
     volumes:
-      - ./wakeword_data:/data
-    command: --preload-model 'ok_nabu'
+      - ./piper-data:/data
+    command: >
+      --voice hu_HU-imre-medium
+      --uri tcp://0.0.0.0:10200
+      --data-dir /data
+      --download-dir /data
+
+  wyoming-satellite:
+    image: sker65/wyoming-satellite:latest
+    container_name: wyoming-satellite
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - "/dev/snd:/dev/snd"
+    command: >
+      --name 'PiSmartSpeaker'
+      --uri 'tcp://0.0.0.0:10700'
+      --mic-command 'arecord -D plughw:3,0 -r 16000 -c 1 -f S16_LE -t raw'
+      --snd-command 'aplay -D plughw:4,0 -r 22050 -c 1 -f S16_LE -t raw'
+      --wake-uri 'tcp://wyoming-openwakeword:10400'
+      --wake-word-name 'hey_jarvis'
+      --vad
+      --vad-threshold 0.5
+    depends_on:
+      - wyoming-openwakeword
+      - wyoming-whisper
+      - wyoming-piper

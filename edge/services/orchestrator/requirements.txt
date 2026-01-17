@@ -1,4 +1,0 @@
-wyoming==1.5.3
-aiohttp==3.10.10
-numpy==1.26.4
-sounddevice==0.4.6
