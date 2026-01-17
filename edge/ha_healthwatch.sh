@@ -16,9 +16,11 @@
 set -euo pipefail
 
 HA_URL="${HA_URL:-http://homeassistant.local:8123}"
+HA_TOKEN="${HA_TOKEN:-}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-15}"
 ALERT_COOLDOWN="${ALERT_COOLDOWN:-60}"
 ALERT_TEXT="${ALERT_TEXT:-HA nem érhető el!}"
+DEVICE_NAME="${DEVICE_NAME:-EdgeSatellite}"
 CACHE_WAV="/cache/ha_unavailable.wav"
 PIPER_CONTAINER="wyoming-piper"
 SATELLITE_CONTAINER="wyoming-satellite"
@@ -58,7 +60,14 @@ require_container "$SATELLITE_CONTAINER"
 log "Watching HA availability at: $HA_URL (interval=${CHECK_INTERVAL}s, cooldown=${ALERT_COOLDOWN}s)"
 
 while true; do
-  if curl -fsS --max-time 3 "$HA_URL" >/dev/null; then
+  curl_opts=(-fsS --max-time 3)
+  
+  # Add token header if provided
+  if [[ -n "$HA_TOKEN" ]]; then
+    curl_opts+=(-H "Authorization: Bearer $HA_TOKEN")
+  fi
+  
+  if curl "${curl_opts[@]}" "$HA_URL" >/dev/null; then
     # HA reachable
     :
   else

@@ -35,10 +35,29 @@ Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wy
 - **Docker Engine** és **Docker Compose** telepítve
 - **Home Assistant** instance cloudban futó LLM-mel és Wyoming Integration-nel
 
-### 2. Rendszer indítása
+### 2. Konfigurálás
+
+Futtasd a setup scriptet:
 
 ```bash
 cd edge
+chmod +x setup.sh
+./setup.sh
+```
+
+**Mit kell megadni:**
+1. **Home Assistant URL** (pl. `http://192.168.1.100:8123` vagy `https://your-ha-domain.duckdns.org`)
+2. **Home Assistant Long-Lived Access Token**
+   - Home Assistant → Settings → Developer Tools → Create Long-Lived Access Token
+   - Token másolása és beszúrása a promptban
+
+**Automatikus:** Az eszköz neve random generálódik (pl. `BrightSpeaker456`).
+
+A beállítások a `.env` fájlba kerülnek, amely a health watcherhez és dockerhez kell.
+
+### 3. Rendszer indítása
+
+```bash
 docker compose up -d
 ```
 
@@ -46,13 +65,19 @@ docker compose up -d
 
 **Automatikus újraindulás:** A Docker konténerek `restart: unless-stopped` politikával rendelkeznek, így áramkimaradás után automatikusan újraindulnak.
 
-### 3. Home Assistant Wyoming Integration beállítása
+**Státusz ellenőrzése:**
+```bash
+docker compose ps
+docker compose logs -f wyoming-satellite  # ostattelés naplójának megtekintése
+```
+
+### 4. Home Assistant Wyoming Integration beállítása
 
 1. **Home Assistant-ban:** Settings → Devices & Services → Add Integration → Wyoming Protocol
 2. **Add meg a satellite adatait:**
-   - **Host**: `<raspberry-pi-ip>`
-   - **Port**: Wyoming Satellite által használt port
-3. **Konfiguráld az LLM-et** a Home Assistant Conversation beállításokban
+   - **Host**: `<raspberry-pi-ip>` (pl. `192.168.1.50`)
+   - **Port**: `10700` (Wyoming Satellite alapértelmezett port)
+3. **Konfiguráld az LLM-et** a Home Assistant Conversation beállításokban (ChatGPT, Ollama, stb.)
 
 ✅ **Kész!** A satellite automatikusan csatlakozik a Home Assistant-hoz
 
@@ -81,30 +106,79 @@ docker compose up -d
 - **Időtúllépés** (5 másodperc): ugyanaz a hibaüzenet
 - **Automatikus helyreállás**: hibaüzenet után visszatérés idle állapotba
 
-#### HA elérhetetlenség riasztás (helyi Piper TTS)
+## ⚙️ Konfigurációs lehetőségek
 
-Ha szeretnéd, hogy a satellite helyben kimondja: *"HA nem érhető el!"* amikor a Home Assistant nem elérhető, futtasd az `ha_healthwatch.sh` figyelő scriptet. Ez a Piper TTS-t használja és a hangot a Wyoming Satellite-on keresztül játssza le.
+### Setup script (`setup.sh`)
 
-Lépések:
+Interaktív script a Home Assistant adatok beállításához:
 
 ```bash
 cd edge
-# egyszeri: osztott cache könyvtár létrehozva és compose-ban felmountolva
-# futtasd a stack-et
-docker compose up -d
-
-# állítsd be a HA URL-t (példa)
-export HA_URL="http://homeassistant.local:8123"
-
-# futtasd a figyelőt (15s-enként ellenőriz, 60s cooldown az ismételt riasztásra)
-chmod +x ha_healthwatch.sh
-./ha_healthwatch.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
-Megjegyzések:
-- A script a `wyoming-piper` konténerben generál WAV fájlt a `tts-cache` megosztott könyvtárba, majd a `wyoming-satellite` konténer játsza le azt.
-- A mikrofon/hangszóró beállításokhoz igazítva a lejátszás `aplay`-t használja (`plughw:4,0`). Ha az eszköz ID eltér, frissítsd a `docker-compose.yml`-t és a scriptet.
-- Testreszabás: `ALERT_TEXT="HA nem érhető el!"`, `CHECK_INTERVAL`, `ALERT_COOLDOWN` környezeti változókkal.
+**Kimenet:**
+```
+╔════════════════════════════════════════════════════════╗
+║         Edge Satellite Setup Configuration             ║
+╚════════════════════════════════════════════════════════╝
+
+[INFO] Generated device name: BoldEcho519
+
+Enter Home Assistant URL: http://192.168.1.100:8123
+Enter Home Assistant Long-Lived Access Token: ••••••••••••••••
+
+[INFO] Configuration saved to .env
+```
+
+A script a `/edge/.env` fájlba írja a beállítások:
+- `HA_URL` – Home Assistant URL
+- `HA_TOKEN` – Long-Lived Access Token
+- `DEVICE_NAME` – Automatikusan generált eszköz név
+- `CHECK_INTERVAL` – Health check intervallum (mp)
+- `ALERT_COOLDOWN` – Riasztás közötti minimum idő (mp)
+- `ALERT_TEXT` – Riasztás szövege magyar nyelven
+
+### Környezeti változók módosítása
+
+Szerkeszd közvetlenül a `.env` fájlt:
+
+```bash
+nano .env
+```
+
+Majd indítsd újra a health watchert:
+
+```bash
+systemctl --user restart ha-healthwatch.service
+```
+
+### HA elérhetetlenség riasztás (helyi Piper TTS)
+
+Ha szeretnéd, hogy a satellite helyben kimondja: *"HA nem érhető el!"* amikor a Home Assistant nem elérhető, a systemd service automatikusan figyelmezteti.
+
+A `.env` fájlban tárolódnak az HA adataid, és a health watcher folyamatosan ellenőrzi a kapcsolatot.
+
+```bash
+# Az HA_TOKEN használata ajánlott (biztonságosabb ellenőrzés)
+# A .env fájlban:
+HA_URL=http://192.168.1.100:8123
+HA_TOKEN=eyJhbGc... (Long-Lived Access Token)
+```
+
+Monitorozás:
+
+```bash
+systemctl --user status ha-healthwatch.service
+```
+
+Ha nincs szükség a riasztásra, stop-hoz:
+
+```bash
+systemctl --user stop ha-healthwatch.service
+systemctl --user disable ha-healthwatch.service
+```
 
 ## 📐 Architektúra
 
