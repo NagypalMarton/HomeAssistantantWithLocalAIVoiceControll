@@ -81,6 +81,31 @@ docker compose up -d
 - **Időtúllépés** (5 másodperc): ugyanaz a hibaüzenet
 - **Automatikus helyreállás**: hibaüzenet után visszatérés idle állapotba
 
+#### HA elérhetetlenség riasztás (helyi Piper TTS)
+
+Ha szeretnéd, hogy a satellite helyben kimondja: *"HA nem érhető el!"* amikor a Home Assistant nem elérhető, futtasd az `ha_healthwatch.sh` figyelő scriptet. Ez a Piper TTS-t használja és a hangot a Wyoming Satellite-on keresztül játssza le.
+
+Lépések:
+
+```bash
+cd edge
+# egyszeri: osztott cache könyvtár létrehozva és compose-ban felmountolva
+# futtasd a stack-et
+docker compose up -d
+
+# állítsd be a HA URL-t (példa)
+export HA_URL="http://homeassistant.local:8123"
+
+# futtasd a figyelőt (15s-enként ellenőriz, 60s cooldown az ismételt riasztásra)
+chmod +x ha_healthwatch.sh
+./ha_healthwatch.sh
+```
+
+Megjegyzések:
+- A script a `wyoming-piper` konténerben generál WAV fájlt a `tts-cache` megosztott könyvtárba, majd a `wyoming-satellite` konténer játsza le azt.
+- A mikrofon/hangszóró beállításokhoz igazítva a lejátszás `aplay`-t használja (`plughw:4,0`). Ha az eszköz ID eltér, frissítsd a `docker-compose.yml`-t és a scriptet.
+- Testreszabás: `ALERT_TEXT="HA nem érhető el!"`, `CHECK_INTERVAL`, `ALERT_COOLDOWN` környezeti változókkal.
+
 ## 📐 Architektúra
 
 ### Rendszer komponensek
