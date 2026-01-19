@@ -1,17 +1,18 @@
-# Central Backend - MicroPi System
+# Central Backend - MicroPi Voice Control Service
 
 [![Central Backend CI](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/central-ci.yml/badge.svg)](https://github.com/NagypalMarton/HomeAssistantantWithLocalAIVoiceControll/actions/workflows/central-ci.yml)
 
-🏗️ Központi backend infrastruktúra (Fejlesztés alatt)
+🚀 **Edge szöveg feldolgozása, Home Assistant végrehajtás, válasz vissza**
 
 ## Áttekintés
 
-A központi backend felelős a következőkért:
-- Felhasználókezelés és autentikáció
-- Home Assistant instance-ok létrehozása és kezelése felhasználónként
-- LLM-alapú intelligens intent feldolgozás (Ollama + Ministral 3 3B)
-- Rendszer monitoring és adminisztráció
-- API szolgáltatások az edge eszközök számára
+A **Central Backend** az edge (Raspberry Pi) eszközöktől kapott felhasználói szövegeket feldolgozza:
+
+1. **Intent feldolgozás:** Ollama LLM-en keresztül felismeri a parancsot
+2. **Végrehajtás:** Per-user Home Assistant instance-en futtatja a parancsot
+3. **Válasz:** Választ küld vissza az edge-nek
+
+Ez egy **diplomamunka projekt**, amely szakmailag konfigurálható, tesztelt és dokumentált.
 
 ## Tervezett architektúra
 

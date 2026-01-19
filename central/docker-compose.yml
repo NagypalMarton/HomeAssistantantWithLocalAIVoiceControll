@@ -1,0 +1,124 @@
+version: '3.9'
+
+services:
+  # ===== PostgreSQL Database =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: central-postgres
+    environment:
+      POSTGRES_USER: central_user
+      POSTGRES_PASSWORD: central_pass
+      POSTGRES_DB: central_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U central_user -d central_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - central
+
+  # ===== Redis Cache =====
+  redis:
+    image: redis:7-alpine
+    container_name: central-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - central
+
+  # ===== Ollama (LLM) =====
+  ollama:
+    image: ollama/ollama:latest
+    container_name: central-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - central
+    # Note: Run `docker exec central-ollama ollama pull mistral:7b` after first start
+
+  # ===== User API Service =====
+  user-api:
+    build:
+      context: ./services/user-api
+      dockerfile: Dockerfile
+    container_name: central-user-api
+    ports:
+      - "8000:8000"
+    environment:
+      CENTRAL_PORT: 8000
+      CENTRAL_ENV: development
+      DATABASE_URL: postgresql://central_user:central_pass@postgres:5432/central_db
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: dev-secret-key-change-in-prod
+      OLLAMA_BASE_URL: http://ollama:11434
+      HA_DEFAULT_DOMAIN: http://localhost:8123
+      DEBUG_MODE: "true"
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - central
+    volumes:
+      - ./services/user-api:/app
+    command: >
+      bash -c "
+        alembic upgrade head &&
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # ===== Prometheus Monitoring (Optional) =====
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: central-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    networks:
+      - central
+    depends_on:
+      - user-api
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+  prometheus_data:
+
+networks:
+  central:
+    driver: bridge

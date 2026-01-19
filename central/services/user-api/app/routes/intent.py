@@ -1,0 +1,139 @@
+"""
+Intent processing endpoints - the core pipeline
+"""
+
+from fastapi import APIRouter, HTTPException, status, Header
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+import time
+import uuid
+import structlog
+
+router = APIRouter()
+logger = structlog.get_logger()
+
+class IntentRequest(BaseModel):
+    user_id: str
+    device_id: str
+    text: str
+    session_id: Optional[str] = None
+    timestamp: Optional[str] = None
+
+class IntentResponse(BaseModel):
+    request_id: str
+    intent: str
+    entity_id: Optional[str] = None
+    response: str
+    status: str  # 'success', 'error', 'timeout'
+    latency_ms: int
+
+class ErrorResponse(BaseModel):
+    request_id: str
+    status: str
+    message: str
+    error_code: str
+
+@router.post("/intent", response_model=IntentResponse)
+async def process_intent(request: IntentRequest, authorization: str = Header(None)):
+    """
+    Core intent processing endpoint
+    
+    Flow:
+    1. Authenticate user (JWT)
+    2. Load session context
+    3. Call LLM service for intent recognition
+    4. Execute intent on per-user HA instance
+    5. Generate response
+    6. Log to audit trail
+    """
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    
+    try:
+        # 1. Authenticate
+        if not authorization or not authorization.startswith("Bearer "):
+            logger.warning("auth_failed", request_id=request_id, user_id=request.user_id)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing or invalid authorization token"
+            )
+        
+        token = authorization.split(" ")[1]
+        # TODO: Verify JWT token
+        
+        logger.info(
+            "intent_received",
+            request_id=request_id,
+            user_id=request.user_id,
+            device_id=request.device_id,
+            text=request.text,
+        )
+        
+        # 2. Load session context
+        # TODO: Load from Redis/DB
+        
+        # 3. Call LLM service
+        # TODO: Call Ollama to recognize intent
+        llm_response = {
+            "intent": "turn_on",
+            "entity_id": "light.nappali",
+            "parameters": {"brightness": 255}
+        }
+        
+        # 4. Execute on HA
+        # TODO: Call per-user HA instance
+        ha_response = {
+            "state": "on",
+            "entity_id": "light.nappali"
+        }
+        
+        # 5. Generate response text
+        response_text = "Bekapcsoltam a nappali lámpát"
+        
+        # 6. Log to audit trail
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        logger.info(
+            "intent_success",
+            request_id=request_id,
+            user_id=request.user_id,
+            intent=llm_response.get("intent"),
+            latency_ms=latency_ms,
+        )
+        
+        # TODO: Persist audit log to DB
+        
+        return IntentResponse(
+            request_id=request_id,
+            intent=llm_response.get("intent"),
+            entity_id=llm_response.get("entity_id"),
+            response=response_text,
+            status="success",
+            latency_ms=latency_ms,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        logger.error(
+            "intent_error",
+            request_id=request_id,
+            user_id=request.user_id,
+            error=str(e),
+            latency_ms=latency_ms,
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process intent"
+        )
+
+@router.post("/intent/batch")
+async def process_intent_batch(requests: list[IntentRequest]):
+    """Batch intent processing (optional)"""
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Batch processing not yet implemented"
+    )
