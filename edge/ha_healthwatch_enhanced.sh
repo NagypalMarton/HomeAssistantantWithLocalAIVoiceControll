@@ -20,12 +20,15 @@ CHECK_INTERVAL="${CHECK_INTERVAL:-60}"
 ALERT_COOLDOWN="${ALERT_COOLDOWN:-60}"
 ALERT_TEXT="${ALERT_TEXT:-A Home Assistant jelenleg nem elérhető!}"
 DEVICE_NAME="${DEVICE_NAME:-EdgeSatellite}"
+# once: csak az első riasztás minden kiesésre, repeat: periodikus ismétlés (alapértelmezett)
+OFFLINE_ALERT_MODE="${OFFLINE_ALERT_MODE:-repeat}"
 CACHE_WAV="/cache/ha_unavailable.wav"
 PIPER_CONTAINER="wyoming-piper"
 SATELLITE_CONTAINER="wyoming-satellite"
 
 last_alert_ts=0
 ha_was_available=true
+alert_sent_for_outage=false
 last_log_line=""
 
 log() {
@@ -90,10 +93,13 @@ monitor_satellite_logs() {
       
       # Immediately check HA availability
       if ! check_ha; then
-        log "HA check failed after ASR → immediate alert (bypassing cooldown)"
-        synthesize_alert || log "Failed to synthesize alert"
-        play_alert || log "Failed to play alert"
-        last_alert_ts=$(date +%s)
+        if [[ "$OFFLINE_ALERT_MODE" == "once" && "$alert_sent_for_outage" == true ]]; then
+          log "HA down after ASR, but alert already sent for this outage (once mode)"
+        else
+          log "HA check failed after ASR → alert"
+          alert_with_cooldown "asr event"
+          alert_sent_for_outage=true
+        fi
       fi
     fi
     
@@ -101,7 +107,12 @@ monitor_satellite_logs() {
     if [[ "$line" =~ (timeout|connection.*refused|failed.*connect|unreachable) ]] && [[ "$line" =~ (home.*assistant|HA) ]]; then
       log "HA connection error detected in satellite logs"
       if ! check_ha; then
-        alert_with_cooldown "satellite log error"
+        if [[ "$OFFLINE_ALERT_MODE" == "once" && "$alert_sent_for_outage" == true ]]; then
+          log "HA down (log error), alert already sent for this outage (once mode)"
+        else
+          alert_with_cooldown "satellite log error"
+          alert_sent_for_outage=true
+        fi
       fi
     fi
   done
@@ -115,6 +126,7 @@ monitor_ha_periodic() {
       if ! $previous_state; then
         log "HA is now available (restored)"
         ha_was_available=true
+        alert_sent_for_outage=false
       fi
       previous_state=true
     else
@@ -124,8 +136,14 @@ monitor_ha_periodic() {
         play_alert || log "Failed to play alert"
         last_alert_ts=$(date +%s)
         ha_was_available=false
+        alert_sent_for_outage=true
       else
-        alert_with_cooldown "periodic check"
+        if [[ "$OFFLINE_ALERT_MODE" == "repeat" ]]; then
+          alert_with_cooldown "periodic check"
+          alert_sent_for_outage=true
+        else
+          log "HA still down (once mode) — no repeat alert"
+        fi
       fi
       previous_state=false
     fi

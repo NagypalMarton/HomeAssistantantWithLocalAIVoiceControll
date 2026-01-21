@@ -147,6 +147,7 @@ A script a `/edge/.env` fájlba írja a beállítások:
 - `CHECK_INTERVAL` – Health check intervallum (mp)
 - `ALERT_COOLDOWN` – Riasztás közötti minimum idő (mp)
 - `ALERT_TEXT` – Riasztás szövege magyar nyelven
+- `OFFLINE_ALERT_MODE` – Riasztási mód: `once` (egyszer/kiesés) vagy `repeat` (ismétlés)
 
 ### Környezeti változók módosítása
 
@@ -183,18 +184,37 @@ HA_URL=http://192.168.1.100:8123
 HA_TOKEN=eyJhbGc... (Long-Lived Access Token)
 
 # Enhanced Health Watcher beállítások
-CHECK_INTERVAL=60        # Periodikus ellenőrzés gyakorisága (mp)
-ALERT_COOLDOWN=60        # Ismételt riasztások közti minimum idő (mp)
+CHECK_INTERVAL=60              # Periodikus ellenőrzés gyakorisága (mp)
+ALERT_COOLDOWN=60              # Ismételt riasztások közti minimum idő (mp)
 ALERT_TEXT="A Home Assistant jelenleg nem elérhető!"
+OFFLINE_ALERT_MODE=once        # Riasztási mód: once (egyszer/kiesés) vagy repeat (ismétlés)
 ```
+
+**Riasztási módok:**
+- **`once`** (ajánlott): Egy kiesés alatt csak egyszer riaszt (kapcsolatvesztéskor vagy első ASR eseménynél), majd újra csak a HA helyreállása után
+- **`repeat`** (alapértelmezett): Kapcsolatvesztéskor azonnal riaszt, majd `ALERT_COOLDOWN` szerint ismétli, amíg a HA offline
 
 #### Működés
 
-- **Satellite log monitoring**: Valós időben figyeli az ASR eseményeket
-- **ASR után azonnali check**: Beszéd felismerése után azonnal ellenőrzi a HA-t
-- **Kapcsolat megszakadás észlelés**: Státusz változáskor azonnali riasztás
-- **Periodikus ellenőrzés**: 60 másodpercenként HA ping (beállítható)
-- **Intelligens cooldown**: Dupla riasztások elkerülése, kivéve ASR eseményeknél
+**Három riasztási pont:**
+
+1. **Kapcsolatvesztéskor azonnal** 
+   - Amikor a HA először elérhetetlenné válik
+   - → Azonnali hibaüzenet lejátszása
+
+2. **ASR esemény után azonnal**
+   - Minden beszédfelismerés után ellenőrzi a HA-t
+   - Ha down → hibaüzenet (once módban: csak ha még nem volt riasztás ennél a kiesésénél)
+
+3. **Periodikus ismétlés** (csak `repeat` mód)
+   - `CHECK_INTERVAL` szerint (60s) folyamatosan pingeli
+   - Offline marad → `ALERT_COOLDOWN` után újra riaszt
+
+**Technikai részletek:**
+- **Satellite log monitoring**: Docker logs folyamatos figyelése ASR eseményekre (transcript/Transcribed/speech_to_text)
+- **HA connection check**: curl-alapú HTTP ellenőrzés (3s timeout, Bearer token autentikáció)
+- **TTS alert generálás**: Piper konténerben szintézis → `/cache/ha_unavailable.wav`
+- **Alert lejátszás**: Satellite konténer ALSA eszközén keresztül (plughw:4,0)
 
 #### Monitorozás
 
@@ -207,6 +227,21 @@ journalctl --user -u ha-healthwatch-enhanced.service -f
 
 # Satellite logok (ASR események)
 docker logs -f wyoming-satellite
+```
+
+**Példa logok:**
+
+```
+[ha_healthwatch_enhanced] 2026-01-21 10:00:00 - Enhanced HA health monitoring started
+[ha_healthwatch_enhanced] 2026-01-21 10:00:00 - HA URL: http://homeassistant.local:8123
+[ha_healthwatch_enhanced] 2026-01-21 10:00:00 - Periodic check interval: 60s
+[ha_healthwatch_enhanced] 2026-01-21 10:00:00 - Alert cooldown: 60s
+[ha_healthwatch_enhanced] 2026-01-21 10:00:00 - Monitoring satellite logs for ASR events...
+[ha_healthwatch_enhanced] 2026-01-21 10:01:15 - HA connection lost → immediate alert
+[ha_healthwatch_enhanced] 2026-01-21 10:02:30 - ASR activity detected in satellite logs
+[ha_healthwatch_enhanced] 2026-01-21 10:02:30 - HA down after ASR, but alert already sent for this outage (once mode)
+[ha_healthwatch_enhanced] 2026-01-21 10:03:00 - HA still down (once mode) — no repeat alert
+[ha_healthwatch_enhanced] 2026-01-21 10:05:45 - HA is now available (restored)
 ```
 
 #### Riasztás kikapcsolása
