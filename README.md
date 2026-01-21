@@ -6,32 +6,34 @@
 
 ```
 MicroPi-System/
-├── edge/                      # Raspberry Pi komponensek
+├── edge/                              # Raspberry Pi komponensek
+│   ├── docker-compose.yml            # Wyoming stack definíció
+│   ├── setup.sh                      # Automatikus konfiguráló script
+│   ├── ha_healthwatch_enhanced.sh    # HA elérhetőség figyelő (ASR-alapú)
+│   ├── ha_healthwatch_enhanced.md    # Health watcher dokumentáció
+│   ├── .env                          # Környezeti változók (HA URL, token, stb.)
+│   ├── oww-models/                   # OpenWakeWord modellek (hey_jarvis)
+│   ├── oww-data/                     # Wake word training adatok
+│   ├── piper-data/                   # Piper TTS modellek (hu_HU-imre-medium)
+│   ├── whisper-data/                 # Whisper STT modellek (tiny-int8)
+│   ├── tts-cache/                    # TTS cache és alert WAV fájlok
+│   ├── SRS.md                        # Edge Software Requirements Specification
+│   └── README.md                     # Edge telepítési útmutató
+│
+├── central/                           # Központi backend (fejlesztés alatt)
+│   ├── docker-compose.yml            # Backend services (tervezett)
 │   ├── services/
-│   │   ├── config/           # Home Assistant konfiguráció webes felület
-│   │   ├── orchestrator/     # Központi koordinátor
-│   │   ├── piper/            # Text-to-Speech (Wyoming-Piper)
-│   │   ├── stt/              # Speech-to-Text (Wyoming-Whisper)
-│   │   └── wakeword/         # Wake-word detektálás (Wyoming-OpenWakeWord)
-│   ├── docker-compose.yml
-│   └── README.md             # Edge telepítési útmutató
+│   │   └── user-api/                 # Felhasználói API (részben implementált)
+│   └── README.md                     # Central telepítési útmutató
 │
-├── central/                   # Központi backend (tervezett)
-│   ├── kubernetes/           # K8s manifesztumok
-│   ├── terraform/            # Infrastruktúra kód
-│   └── services/             # Backend szolgáltatások
-│       ├── ha-manager/       # Home Assistant instance kezelő
-│       ├── llm-service/      # LLM szolgáltatás (Ollama)
-│       ├── admin-ui/         # Admin felület
-│       ├── user-api/         # Felhasználói API
-│       └── monitoring/       # Zabbix monitoring
+├── docs/                              # Dokumentáció
+│   ├── mikrobi_okosotthon_rendszer_srs.md  # Teljes rendszer SRS
+│   └── LICENSE                       # MIT licenc
 │
-├── shared/                    # Közös komponensek
-│   └── wyoming-protocol/     # Wyoming protokoll definíciók
+├── .github/                           # CI/CD workflows
+│   └── workflows/                    # GitHub Actions
 │
-└── docs/                      # Dokumentáció
-    ├── mikrobi_okosotthon_rendszer_srs.md
-    └── LICENSE
+└── README.md                          # Projekt főoldal (ez a fájl)
 ```
 
 ## 🚀 Gyors kezdés
@@ -45,11 +47,11 @@ A központi backend implementációja fejlesztés alatt: [central/README.md](cen
 ## 🏗️ Architektúra
 
 ### Edge réteg (Raspberry Pi)
-- **Wyoming-OpenWakeWord**: Wake-word detektálás ("Alexa" jelenleg, "Mikrobi" tervezett)
-- **Wyoming-Whisper**: Speech-to-Text magyar nyelvvel
-- **Wyoming-Piper**: Text-to-Speech magyar Anna hanggal
-- **Orchestrator**: Szolgáltatások koordinálása, HA kommunikáció
-- **Config Web**: Home Assistant konfiguráció webes felületen
+- **Wyoming-OpenWakeWord**: Wake-word detektálás ("Hey Jarvis" jelenleg, "Mikrobi" tervezett)
+- **Wyoming-Whisper**: Speech-to-Text magyar nyelvvel (offline, tiny-int8)
+- **Wyoming-Piper**: Text-to-Speech magyar Imre hanggal (offline, medium quality)
+- **Wyoming Satellite**: Mikrofon/hangszóró koordináció, pipeline management
+- **Enhanced HA Health Watcher**: Intelligens HA elérhetőség figyelés ASR-alapú riasztással
 
 ### Központi réteg (Tervezett)
 - **Home Assistant Manager**: Felhasználónként dedikált HA instance-ok
@@ -76,12 +78,16 @@ A rendszer a [Wyoming protokollt](https://github.com/rhasspy/wyoming) használja
 
 ### ✅ Implementált (Edge)
 - Wyoming protokoll integráció
-- Wake-word detektálás
-- Magyar Speech-to-Text
-- Magyar Text-to-Speech
+- Wake-word detektálás ("Hey Jarvis")
+- Magyar Speech-to-Text (offline, Whisper tiny-int8)
+- Magyar Text-to-Speech (offline, Piper hu_HU-imre-medium)
 - Home Assistant Conversation API integráció
 - Docker Compose alapú deployment
-- Webes konfigurációs felület
+- Enhanced HA Health Watcher:
+  - ASR esemény utáni azonnali HA ellenőrzés
+  - Kapcsolatvesztés azonnali észlelése
+  - Intelligens riasztási módok (once/repeat)
+  - Piper TTS alapú hangos riasztás
 
 ### 🚧 Fejlesztés alatt (Central)
 - Kubernetes infrastruktúra
