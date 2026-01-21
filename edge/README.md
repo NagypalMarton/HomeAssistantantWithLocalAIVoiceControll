@@ -17,6 +17,7 @@ Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wy
 - **Wyoming-Piper**: Magyar hangszintézis (TTS) - hu_HU-imre-medium hang (offline)
 - **Wyoming Satellite**: Koordinálja a szolgáltatásokat, mikrofon/hangszóró kezelés
 - **Home Assistant Integration**: LLM-alapú parancsfelismerés és válaszgenerálás (cloud)
+- **Enhanced HA Health Watcher**: Intelligens HA elérhetőség figyelés ASR-alapú riasztással
 
 ## 🚀 Gyors indítás
 
@@ -101,10 +102,17 @@ docker compose logs -f wyoming-satellite  # ostattelés naplójának megtekinté
 - **Teljes interakció**: < 5s (HA válaszidő nélkül)
 - **Beszédrögzítés vége**: 2 másodperc csend után automatikusan
 
-### Hibakezelés
-- **Home Assistant nem elérhető**: *"A Home Assistant jelenleg nem elérhető."* üzenet
-- **Időtúllépés** (5 másodperc): ugyanaz a hibaüzenet
-- **Automatikus helyreállás**: hibaüzenet után visszatérés idle állapotba
+### Hibakezelés (Enhanced HA Health Watcher)
+
+Az **Enhanced HA Health Watcher** három módon riaszt HA elérhetetlenség esetén:
+
+1. **ASR aktivitás után azonnal**: Amikor beszélsz és az ASR feldolgozta a beszédet, azonnal ellenőrzi a HA-t és riaszt, ha nem elérhető (cooldown nélkül)
+2. **Kapcsolat megszakadáskor azonnal**: Amikor a HA először válik elérhetetlenné, azonnal bemondja a hibaüzenetet
+3. **Ismételt riasztás**: Amíg a HA offline marad, ALERT_COOLDOWN szerint (alapértelmezés: 60s) ismétli
+
+**Riasztási üzenet**: *"A Home Assistant jelenleg nem elérhető."* (magyar Piper TTS)
+
+**Automatikus helyreállás**: Hibaüzenet után visszatérés idle állapotba, HA helyreállításkor logolás
 
 ## ⚙️ Konfigurációs lehetőségek
 
@@ -151,34 +159,66 @@ nano .env
 Majd indítsd újra a health watchert:
 
 ```bash
-systemctl --user restart ha-healthwatch.service
+systemctl --user restart ha-healthwatch-enhanced.service
 ```
 
-### HA elérhetetlenség riasztás (helyi Piper TTS)
+### Enhanced HA elérhetetlenség riasztás (Intelligens ASR-alapú)
 
-Ha szeretnéd, hogy a satellite helyben kimondja: *"HA nem érhető el!"* amikor a Home Assistant nem elérhető, a systemd service automatikusan figyelmezteti.
+Az **Enhanced HA Health Watcher** automatikusan figyeli a Home Assistant elérhetőségét és intelligensen riaszt:
 
-A `.env` fájlban tárolódnak az HA adataid, és a health watcher folyamatosan ellenőrzi a kapcsolatot.
+#### Telepítés
+
+A service automatikusan települ a `setup.sh` futtatásakor. Manuális indításhoz:
 
 ```bash
-# Az HA_TOKEN használata ajánlott (biztonságosabb ellenőrzés)
-# A .env fájlban:
+systemctl --user enable ha-healthwatch-enhanced.service
+systemctl --user start ha-healthwatch-enhanced.service
+```
+
+#### Konfiguráció (.env fájlban)
+
+```bash
+# Home Assistant kapcsolat
 HA_URL=http://192.168.1.100:8123
 HA_TOKEN=eyJhbGc... (Long-Lived Access Token)
+
+# Enhanced Health Watcher beállítások
+CHECK_INTERVAL=60        # Periodikus ellenőrzés gyakorisága (mp)
+ALERT_COOLDOWN=60        # Ismételt riasztások közti minimum idő (mp)
+ALERT_TEXT="A Home Assistant jelenleg nem elérhető!"
 ```
 
-Monitorozás:
+#### Működés
+
+- **Satellite log monitoring**: Valós időben figyeli az ASR eseményeket
+- **ASR után azonnali check**: Beszéd felismerése után azonnal ellenőrzi a HA-t
+- **Kapcsolat megszakadás észlelés**: Státusz változáskor azonnali riasztás
+- **Periodikus ellenőrzés**: 60 másodpercenként HA ping (beállítható)
+- **Intelligens cooldown**: Dupla riasztások elkerülése, kivéve ASR eseményeknél
+
+#### Monitorozás
 
 ```bash
-systemctl --user status ha-healthwatch.service
+# Service státusz
+systemctl --user status ha-healthwatch-enhanced.service
+
+# Live logok
+journalctl --user -u ha-healthwatch-enhanced.service -f
+
+# Satellite logok (ASR események)
+docker logs -f wyoming-satellite
 ```
 
-Ha nincs szükség a riasztásra, stop-hoz:
+#### Riasztás kikapcsolása
 
 ```bash
-systemctl --user stop ha-healthwatch.service
-systemctl --user disable ha-healthwatch.service
+systemctl --user stop ha-healthwatch-enhanced.service
+systemctl --user disable ha-healthwatch-enhanced.service
 ```
+
+#### Részletes dokumentáció
+
+További információk: [ha_healthwatch_enhanced.md](ha_healthwatch_enhanced.md)
 
 ## 📐 Architektúra
 
