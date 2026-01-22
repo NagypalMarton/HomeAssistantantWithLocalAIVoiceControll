@@ -65,3 +65,24 @@ services:
       - wyoming-openwakeword
       - wyoming-whisper
       - wyoming-piper
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    restart: unless-stopped
+    ports: ["1883:1883"]
+    volumes:
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/log:/mosquitto/log
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:2.7.2
+    restart: unless-stopped
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    environment:
+      - TZ=Europe/Budapest
+    volumes:
+      - ./zigbee2mqtt/data:/app/data
+      - ./zigbee2mqtt/log:/app/logs
+    ports:
+      - "8080:8080"

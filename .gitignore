@@ -35,3 +35,16 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+# Ignore Docker runtime data
+edge/mosquitto/data/
+edge/mosquitto/log/
+edge/zigbee2mqtt/log/
+edge/zigbee2mqtt/data/*.json
+edge/zigbee2mqtt/data/*.db
+edge/zigbee2mqtt/data/logs/
+
+# Keep config files
+!edge/zigbee2mqtt/data/configuration.yaml
+!edge/zigbee2mqtt/data/devices.yaml
+!edge/zigbee2mqtt/data/groups.yaml
+!edge/mosquitto/config/
