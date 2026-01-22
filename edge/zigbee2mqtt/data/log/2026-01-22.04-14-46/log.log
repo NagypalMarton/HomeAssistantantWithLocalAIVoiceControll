@@ -107,3 +107,42 @@
 [2026-01-22 19:44:59] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769107499012,"os":{"load_average":[0.4,0.54,0.54],"memory_used_mb":1414.48,"memory_percent":76.6418},"process":{"uptime_sec":55840,"memory_used_mb":19.54,"memory_percent":1.0587},"mqtt":{"connected":true,"queued":0,"published":195,"received":13},"devices":{}}'
 [2026-01-22 19:54:59] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769108099012,"os":{"load_average":[1.38,0.76,0.62],"memory_used_mb":1393.65,"memory_percent":75.513},"process":{"uptime_sec":56440,"memory_used_mb":20.4,"memory_percent":1.1053},"mqtt":{"connected":true,"queued":0,"published":197,"received":13},"devices":{}}'
 [2026-01-22 20:04:59] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769108699027,"os":{"load_average":[3.12,2.18,1.25],"memory_used_mb":1466.78,"memory_percent":79.4756},"process":{"uptime_sec":57040,"memory_used_mb":13.32,"memory_percent":0.7215},"mqtt":{"connected":true,"queued":0,"published":199,"received":13},"devices":{}}'
+[2026-01-22 20:14:59] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769109299642,"os":{"load_average":[7.42,5.81,3.45],"memory_used_mb":1670.29,"memory_percent":90.5022},"process":{"uptime_sec":57640,"memory_used_mb":12.41,"memory_percent":0.6722},"mqtt":{"connected":true,"queued":0,"published":201,"received":13},"devices":{}}'
+[2026-01-22 20:23:50] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":7} after 4000ms
+[2026-01-22 20:23:52] error: 	zh:ezsp:uart: -!- break waiting (7)
+[2026-01-22 20:23:53] error: 	zh:ezsp:uart: Can't send DATA frame (6,7,0): ce00010500
+[2026-01-22 20:23:58] error: 	z2m: MQTT error: write EPIPE
+[2026-01-22 20:23:58] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 20:24:00] info: 	z2m: Connected to MQTT server
+[2026-01-22 20:24:00] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"online"}'
+[2026-01-22 20:24:02] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":7} after 4000ms
+[2026-01-22 20:24:02] error: 	zh:ezsp:uart: -!- break rewaiting (7)
+[2026-01-22 20:24:02] error: 	zh:ezsp:uart: Can't resend DATA frame (6,7,1): ce00010500
+[2026-01-22 20:24:02] error: 	zh:ezsp:ezsp: Watchdog heartbeat timeout Error: Failure send nop:{"type":"Buffer","data":[206,0,1,5,0]}
+[2026-01-22 20:25:01] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769109901783,"os":{"load_average":[20.65,18.31,9.57],"memory_used_mb":1637.1,"memory_percent":88.7042},"process":{"uptime_sec":58242,"memory_used_mb":24.58,"memory_percent":1.3317},"mqtt":{"connected":true,"queued":0,"published":215,"received":13},"devices":{}}'
+[2026-01-22 20:31:31] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":4} after 4000ms
+[2026-01-22 20:35:08] error: 	zh:ezsp:uart: -!- break waiting (4)
+[2026-01-22 20:37:04] error: 	zh:ezsp:uart: Can't send DATA frame (3,4,0): 3300010500
+[2026-01-22 20:45:41] error: 	z2m: MQTT error: write EPIPE
+[2026-01-22 20:45:59] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 20:46:02] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 20:46:02] error: 	z2m: Cannot send message: topic: 'zigbee2mqtt/bridge/health', payload: '{"response_time":1769111162203,"os":{"load_average":[42.36,51.45,44.44],"memory_used_mb":1700.83,"memory_percent":92.1573},"process":{"uptime_sec":59503,"memory_used_mb":21.16,"memory_percent":1.1467},"mqtt":{"connected":false,"queued":0,"published":222,"received":13},"devices":{}}
+[2026-01-22 20:46:08] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":4} after 4000ms
+[2026-01-22 20:46:09] error: 	zh:ezsp:uart: -!- break rewaiting (4)
+[2026-01-22 20:46:09] error: 	zh:ezsp:uart: Can't resend DATA frame (3,4,1): 3300010500
+[2026-01-22 20:46:10] error: 	zh:ezsp:ezsp: Watchdog heartbeat timeout Error: Failure send nop:{"type":"Buffer","data":[51,0,1,5,0]}
+[2026-01-22 20:46:10] info: 	z2m: Connected to MQTT server
+[2026-01-22 20:46:10] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"online"}'
+[2026-01-22 20:46:45] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":2} after 4000ms
+[2026-01-22 20:46:58] error: 	zh:ezsp:uart: -!- break waiting (2)
+[2026-01-22 20:46:59] error: 	zh:ezsp:uart: Can't send DATA frame (1,2,0): 2900010500
+[2026-01-22 20:47:08] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":2} after 4000ms
+[2026-01-22 20:47:08] error: 	zh:ezsp:uart: -!- break rewaiting (2)
+[2026-01-22 20:47:08] error: 	zh:ezsp:uart: Can't resend DATA frame (1,2,1): 2900010500
+[2026-01-22 20:47:09] error: 	zh:ezsp:ezsp: Watchdog heartbeat timeout Error: Failure send nop:{"type":"Buffer","data":[41,0,1,5,0]}
+[2026-01-22 20:48:29] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":7} after 4000ms
+[2026-01-22 20:48:46] error: 	zh:ezsp:uart: -!- break waiting (7)
+[2026-01-22 20:48:57] error: 	zh:ezsp:uart: Can't send DATA frame (6,7,0): 2e00010500
+[2026-01-22 21:23:24] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 21:32:36] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 21:35:26] error: 	z2m: Cannot send message: topic: 'zigbee2mqtt/bridge/health', payload: '{"response_time":1769113904022,"os":{"load_average":[66.96,67.63,66.59],"memory_used_mb":1775.5,"memory_percent":96.2033},"process":{"uptime_sec":62252,"memory_used_mb":16.11,"memory_percent":0.8727},"mqtt":{"connected":false,"queued":0,"published":242,"received":13},"devices":{}}

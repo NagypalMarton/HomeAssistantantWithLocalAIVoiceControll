@@ -6,6 +6,11 @@
 
 🎙️ Raspberry Pi alapú hangvezérlésű satellite eszköz magyar nyelvű Home Assistant integrációval
 
+## TL;DR (3 lépés)
+- `./setup.sh` – megadod a HA URL-t és a long-lived tokent, létrejön a `.env`
+- `docker compose up -d` – letölti a modelleket és elindítja a konténereket
+- Home Assistant → Add Integration → Wyoming → host: `<pi-ip>`, port: `10700`
+
 ## Áttekintés
 
 Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wyoming protokollt használ offline beszédfelismeréshez és szintézishez, majd kommunikál egy cloudban futó Home Assistant LLM-mel.
@@ -70,6 +75,20 @@ docker compose up -d
 ```bash
 docker compose ps
 docker compose logs -f wyoming-satellite  # ostattelés naplójának megtekintése
+```
+
+### Frissítés / új verzió telepítése
+
+```bash
+cd edge
+docker compose pull
+docker compose up -d
+```
+
+Ha a modellek mappái (oww-models, whisper-data, piper-data) változtak, töröld a régi cache-t is:
+
+```bash
+rm -rf tts-cache/*
 ```
 
 ### 4. Home Assistant Wyoming Integration beállítása
@@ -254,6 +273,12 @@ systemctl --user disable ha-healthwatch-enhanced.service
 #### Részletes dokumentáció
 
 További információk: [ha_healthwatch_enhanced.md](ha_healthwatch_enhanced.md)
+
+## 🧰 Gyakori hibák és megoldások
+
+- **Nem ébreszt a "Hey Jarvis"**: ellenőrizd, hogy a mikrofon eszköz a docker-compose-ban egyezik-e (`plughw:3,0`), és a `docker logs wyoming-openwakeword` tartalmaz-e wake eventet.
+- **"Home Assistant nem elérhető" riasztás**: győződj meg róla, hogy a `.env`-ben a `HA_URL` és `HA_TOKEN` érvényes, majd indítsd újra a healthwatchert: `systemctl --user restart ha-healthwatch-enhanced.service`.
+- **Nincs hangkimenet**: ellenőrizd a hangszóró eszköz azonosítót (`plughw:4,0`) és a Piper logot: `docker logs wyoming-piper`.
 
 ## 📐 Architektúra
 
