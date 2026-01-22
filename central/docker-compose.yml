@@ -69,7 +69,7 @@ services:
       CENTRAL_ENV: development
       DATABASE_URL: postgresql://central_user:central_pass@postgres:5432/central_db
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: dev-secret-key-change-in-prod
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-prod}
       OLLAMA_BASE_URL: http://ollama:11434
       HA_DEFAULT_DOMAIN: http://localhost:8123
       DEBUG_MODE: "true"
@@ -82,7 +82,7 @@ services:
       ollama:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -92,7 +92,6 @@ services:
       - ./services/user-api:/app
     command: >
       bash -c "
-        alembic upgrade head &&
         uvicorn main:app --host 0.0.0.0 --port 8000 --reload
       "
 

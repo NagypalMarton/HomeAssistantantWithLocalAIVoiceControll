@@ -47,6 +47,7 @@ services:
     image: sker65/wyoming-satellite:latest
     container_name: wyoming-satellite
     restart: unless-stopped
+    profiles: ["hardware"]
     privileged: true
     devices:
       - "/dev/snd:/dev/snd"
@@ -77,6 +78,7 @@ services:
   zigbee2mqtt:
     image: koenkk/zigbee2mqtt:2.7.2
     restart: unless-stopped
+    profiles: ["hardware"]
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"
     environment:

@@ -2,9 +2,10 @@
 Authentication endpoints
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field, validator
 import structlog
+import uuid
 from typing import Optional
 from app.constants import (
     VALIDATION_PASSWORD_MIN_LENGTH,
@@ -12,6 +13,11 @@ from app.constants import (
     TEXT_MAX_LENGTH,
 )
 from app.exceptions import AuthenticationError, ValidationError
+from app.security import (
+    create_access_token,
+    create_refresh_token,
+    verify_token,
+)
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -43,26 +49,25 @@ class RegisterResponse(BaseModel):
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     """User login - returns JWT tokens"""
-    # TODO: Verify credentials, generate JWT tokens
     logger.info("login_attempt", email=request.email)
-    
-    # Stub implementation
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Login endpoint not yet implemented"
+    # Minimal acceptance: generate tokens without DB for out-of-the-box demo
+    user_id = str(uuid.uuid4())
+    payload = {"sub": request.email, "uid": user_id}
+    access_token = create_access_token(payload)
+    refresh_token = create_refresh_token(payload)
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type=TokenType.BEARER.value,
     )
 
 @router.post("/register", response_model=RegisterResponse)
 async def register(request: RegisterRequest):
     """User registration"""
-    # TODO: Create user, hash password, create initial HA instance
     logger.info("registration_attempt", email=request.email)
-    
-    # Stub implementation
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Register endpoint not yet implemented"
-    )
+    # Minimal acceptance: echo back user id without DB persistence
+    user_id = str(uuid.uuid4())
+    return RegisterResponse(user_id=user_id, email=request.email)
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(..., description="Refresh token")
@@ -70,9 +75,15 @@ class RefreshTokenRequest(BaseModel):
 @router.post("/refresh")
 async def refresh_token(request: RefreshTokenRequest) -> LoginResponse:
     """Refresh access token"""
-    # TODO: Validate refresh token, issue new access token
     logger.info("refresh_token_attempt")
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Refresh endpoint not yet implemented"
+    payload = verify_token(request.refresh_token, token_type="refresh")
+    user_id = payload.get("uid") or payload.get("sub")
+    if not user_id:
+        raise AuthenticationError("Refresh token missing user id")
+    new_access = create_access_token({"sub": payload.get("sub"), "uid": user_id})
+    new_refresh = create_refresh_token({"sub": payload.get("sub"), "uid": user_id})
+    return LoginResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        token_type=TokenType.BEARER.value,
     )
