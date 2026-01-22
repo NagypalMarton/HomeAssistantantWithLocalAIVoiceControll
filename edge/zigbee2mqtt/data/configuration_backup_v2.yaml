@@ -1,0 +1,16 @@
+homeassistant: true
+
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+  user: homeassistant
+  password: password123
+
+serial:
+  port: /dev/ttyUSB0
+  adapter: ezsp
+
+frontend:
+  port: 8080
+
+permit_join: false
