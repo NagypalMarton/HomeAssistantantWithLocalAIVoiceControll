@@ -30,3 +30,22 @@
 [2026-01-22 03:20:09] error: 	zh:ezsp:uart: Can't send DATA frame (4,5,0): 5c00011101ffffffffffffffff5a6967426565416c6c69616e6365303900
 [2026-01-22 03:21:05] info: 	z2m: Zigbee: disabling joining new devices.
 [2026-01-22 03:24:43] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769048683603,"os":{"load_average":[3.34,7.11,8.32],"memory_used_mb":1465.17,"memory_percent":79.3884},"process":{"uptime_sec":621,"memory_used_mb":15.63,"memory_percent":0.847},"mqtt":{"connected":true,"queued":0,"published":34,"received":3},"devices":{"0x048727fffe22ac7c":{"messages":1,"messages_per_sec":0.0029,"leave_count":0,"network_address_changes":0}}}'
+[2026-01-22 03:35:15] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:35:17] error: 	z2m: Cannot send message: topic: 'zigbee2mqtt/bridge/health', payload: '{"response_time":1769049313537,"os":{"load_average":[33.34,17.78,11.34],"memory_used_mb":1720.7,"memory_percent":93.2336},"process":{"uptime_sec":1252,"memory_used_mb":9.11,"memory_percent":0.4934},"mqtt":{"connected":false,"queued":0,"published":36,"received":3},"devices":{"0x048727fffe22ac7c":{"messages":1,"messages_per_sec":0.001,"leave_count":0,"network_address_changes":0}}}
+[2026-01-22 03:35:18] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:35:28] info: 	z2m: Connected to MQTT server
+[2026-01-22 03:35:29] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"online"}'
+[2026-01-22 03:45:55] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769049940310,"os":{"load_average":[21.25,14.32,11.58],"memory_used_mb":1743.86,"memory_percent":94.4887},"process":{"uptime_sec":1881,"memory_used_mb":7.33,"memory_percent":0.3971},"mqtt":{"connected":true,"queued":0,"published":43,"received":3},"devices":{"0x048727fffe22ac7c":{"messages":1,"messages_per_sec":0.0006,"leave_count":0,"network_address_changes":0}}}'
+[2026-01-22 03:46:33] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:46:47] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:46:57] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:47:42] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:47:46] error: 	z2m: MQTT error: connack timeout
+[2026-01-22 03:47:54] error: 	z2m: Not connected to MQTT server!
+[2026-01-22 03:48:04] info: 	z2m: Connected to MQTT server
+[2026-01-22 03:48:05] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"online"}'
+[2026-01-22 03:55:35] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769050535954,"os":{"load_average":[0.32,4.82,8.91],"memory_used_mb":1602.86,"memory_percent":86.8488},"process":{"uptime_sec":2473,"memory_used_mb":22.1,"memory_percent":1.1975},"mqtt":{"connected":true,"queued":0,"published":51,"received":3},"devices":{"0x048727fffe22ac7c":{"messages":1,"messages_per_sec":0.0005,"leave_count":0,"network_address_changes":0}}}'
+[2026-01-22 04:05:35] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/health', payload '{"response_time":1769051135923,"os":{"load_average":[0.4,1,4.86],"memory_used_mb":1610.84,"memory_percent":87.2814},"process":{"uptime_sec":3073,"memory_used_mb":24.77,"memory_percent":1.3419},"mqtt":{"connected":true,"queued":0,"published":53,"received":3},"devices":{"0x048727fffe22ac7c":{"messages":1,"messages_per_sec":0.0004,"leave_count":0,"network_address_changes":0}}}'
+[2026-01-22 04:13:10] info: 	z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"offline"}'
+[2026-01-22 04:13:10] info: 	z2m: Disconnecting from MQTT server
+[2026-01-22 04:13:10] info: 	z2m: Stopping zigbee-herdsman...

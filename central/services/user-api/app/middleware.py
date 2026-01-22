@@ -5,9 +5,10 @@ Middleware for request tracking and logging
 import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 import structlog
 import time
+from typing import Callable
 
 logger = structlog.get_logger()
 
@@ -25,7 +26,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 class LoggingMiddleware(BaseHTTPMiddleware):
     """Log HTTP requests and responses"""
     
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         request_id = getattr(request.state, "request_id", "unknown")
         start_time = time.time()
         
@@ -36,7 +37,20 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             request_id=request_id,
         )
         
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(
+                "http.error",
+                error=str(e),
+                duration_ms=int(duration * 1000),
+                request_id=request_id,
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error", "request_id": request_id}
+            )
         
         duration = time.time() - start_time
         logger.info(

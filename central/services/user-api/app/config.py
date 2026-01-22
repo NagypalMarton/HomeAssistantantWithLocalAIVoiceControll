@@ -4,6 +4,7 @@ Configuration management using Pydantic Settings
 
 from pydantic_settings import BaseSettings
 from typing import List
+import os
 
 class Settings(BaseSettings):
     """Application settings from environment variables"""
@@ -23,7 +24,7 @@ class Settings(BaseSettings):
     redis_pool_size: int = 20
     
     # JWT & Auth
-    jwt_secret: str = "your-256-bit-secret-change-this"
+    jwt_secret: str  # Required - must be set via environment variable
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 7
@@ -59,5 +60,13 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.jwt_secret or self.jwt_secret == "your-256-bit-secret-change-this":
+            raise ValueError(
+                "JWT_SECRET environment variable must be set to a secure random value. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
 
 settings = Settings()

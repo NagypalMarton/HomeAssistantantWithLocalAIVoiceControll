@@ -2,30 +2,48 @@
 Intent processing endpoints - the core pipeline
 """
 
-from fastapi import APIRouter, HTTPException, status, Header
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, status, Header, Depends
+from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import datetime
 import time
 import uuid
 import structlog
+from app.constants import (
+    TEXT_MIN_LENGTH,
+    TEXT_MAX_LENGTH,
+    VALIDATION_TEXT_REQUIRED,
+    VALIDATION_TEXT_TOO_LONG,
+    VALIDATION_USER_ID_REQUIRED,
+    VALIDATION_DEVICE_ID_REQUIRED,
+    IntentStatus,
+)
+from app.exceptions import AuthenticationError, ValidationError
 
 router = APIRouter()
 logger = structlog.get_logger()
 
 class IntentRequest(BaseModel):
-    user_id: str
-    device_id: str
-    text: str
-    session_id: Optional[str] = None
-    timestamp: Optional[str] = None
+    user_id: str = Field(..., description="User UUID")
+    device_id: str = Field(..., description="Device identifier")
+    text: str = Field(..., min_length=TEXT_MIN_LENGTH, max_length=TEXT_MAX_LENGTH, description="User input text")
+    session_id: Optional[str] = Field(None, description="Optional session ID for context")
+    timestamp: Optional[str] = Field(None, description="Optional timestamp")
+    
+    @validator('text')
+    def validate_text(cls, v):
+        if not v or not v.strip():
+            raise ValueError(VALIDATION_TEXT_REQUIRED)
+        if len(v) > TEXT_MAX_LENGTH:
+            raise ValueError(VALIDATION_TEXT_TOO_LONG)
+        return v.strip()
 
 class IntentResponse(BaseModel):
     request_id: str
     intent: str
     entity_id: Optional[str] = None
     response: str
-    status: str  # 'success', 'error', 'timeout'
+    status: str  # Use IntentStatus enum values
     latency_ms: int
 
 class ErrorResponse(BaseModel):
@@ -54,12 +72,9 @@ async def process_intent(request: IntentRequest, authorization: str = Header(Non
         # 1. Authenticate
         if not authorization or not authorization.startswith("Bearer "):
             logger.warning("auth_failed", request_id=request_id, user_id=request.user_id)
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing or invalid authorization token"
-            )
+            raise AuthenticationError("Missing or invalid authorization token")
         
-        token = authorization.split(" ")[1]
+        token: str = authorization.split(" ")[1]
         # TODO: Verify JWT token
         
         logger.info(
@@ -106,10 +121,10 @@ async def process_intent(request: IntentRequest, authorization: str = Header(Non
         
         return IntentResponse(
             request_id=request_id,
-            intent=llm_response.get("intent"),
+            intent=llm_response.get("intent", ""),
             entity_id=llm_response.get("entity_id"),
             response=response_text,
-            status="success",
+            status=IntentStatus.SUCCESS.value,
             latency_ms=latency_ms,
         )
         

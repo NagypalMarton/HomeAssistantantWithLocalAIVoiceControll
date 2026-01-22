@@ -2,25 +2,38 @@
 Authentication endpoints
 """
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, HTTPException, status, Depends
+from pydantic import BaseModel, EmailStr, Field, validator
 import structlog
+from typing import Optional
+from app.constants import (
+    VALIDATION_PASSWORD_MIN_LENGTH,
+    TokenType,
+    TEXT_MAX_LENGTH,
+)
+from app.exceptions import AuthenticationError, ValidationError
 
 router = APIRouter()
 logger = structlog.get_logger()
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=1, description="User password")
 
 class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = TokenType.BEARER.value
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, max_length=TEXT_MAX_LENGTH, description="User password")
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError(VALIDATION_PASSWORD_MIN_LENGTH)
+        return v
 
 class RegisterResponse(BaseModel):
     user_id: str
@@ -51,10 +64,14 @@ async def register(request: RegisterRequest):
         detail="Register endpoint not yet implemented"
     )
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh token")
+
 @router.post("/refresh")
-async def refresh_token(refresh_token: str):
+async def refresh_token(request: RefreshTokenRequest) -> LoginResponse:
     """Refresh access token"""
     # TODO: Validate refresh token, issue new access token
+    logger.info("refresh_token_attempt")
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Refresh endpoint not yet implemented"

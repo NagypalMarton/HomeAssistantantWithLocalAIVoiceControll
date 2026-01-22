@@ -49,19 +49,26 @@ engine = create_async_engine(
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown"""
     # Startup
     logger.info("Starting MicroPi Central Backend...")
-    await init_db(engine)
-    logger.info("Database initialized successfully")
+    try:
+        await init_db(engine)
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error("Failed to initialize database", error=str(e))
+        raise
     
     yield
     
     # Shutdown
     logger.info("Shutting down...")
-    await engine.dispose()
-    logger.info("Application stopped")
+    try:
+        await engine.dispose()
+        logger.info("Application stopped")
+    except Exception as e:
+        logger.error("Error during shutdown", error=str(e))
 
 # Create FastAPI app
 app = FastAPI(
@@ -88,10 +95,17 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(intent.router, prefix="/api/v1", tags=["intent"])
 
 # Dependency for session
-async def get_db() -> AsyncGenerator:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency: Get database session"""
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 if __name__ == "__main__":
     import uvicorn
