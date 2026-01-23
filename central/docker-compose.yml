@@ -1,4 +1,3 @@
-version: '3.9'
 
 services:
   # ===== Init Service (Auto-generate secrets) =====
@@ -63,19 +62,14 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_LLM_LIBRARY=cuda12
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # GPU support (uncomment if you have NVIDIA GPU with Docker support)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     networks:
       - central
     # Note: Run `docker exec central-ollama ollama pull ministral-3:3b-instruct-2512-q4_K_M` after first start
@@ -104,7 +98,7 @@ services:
       redis:
         condition: service_healthy
       ollama:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 10s
@@ -148,28 +142,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
-  # ===== Prometheus Monitoring (Optional) =====
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: central-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-    networks:
-      - central
-    depends_on:
-      - user-api
-
 volumes:
   postgres_data:
   redis_data:
   ollama_data:
-  prometheus_data:
 
 networks:
   central:
