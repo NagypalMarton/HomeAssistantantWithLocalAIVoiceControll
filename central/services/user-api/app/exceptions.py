@@ -50,6 +50,13 @@ class HomeAssistantError(ExternalServiceError):
         super().__init__(detail=detail, service="HomeAssistant")
 
 
+class LLMError(ExternalServiceError):
+    """LLM (Ollama) service error"""
+    def __init__(self, detail: str = "LLM service error"):
+        super().__init__(detail=detail, service="Ollama")
+
+
+
 class LLMServiceError(ExternalServiceError):
     """LLM service error"""
     def __init__(self, detail: str = "LLM service error"):

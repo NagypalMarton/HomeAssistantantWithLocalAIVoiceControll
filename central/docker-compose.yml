@@ -1,6 +1,22 @@
 version: '3.9'
 
 services:
+  # ===== Init Service (Auto-generate secrets) =====
+  init:
+    image: python:3.11-slim
+    container_name: central-init
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      bash -c "
+        pip install --no-cache-dir cryptography &&
+        chmod +x /app/scripts/init-env.sh &&
+        /app/scripts/init-env.sh
+      "
+    profiles:
+      - setup
+
   # ===== PostgreSQL Database =====
   postgres:
     image: postgres:16-alpine
@@ -37,7 +53,7 @@ services:
     networks:
       - central
 
-  # ===== Ollama (LLM) =====
+  # ===== Ollama (LLM with GPU Support) =====
   ollama:
     image: ollama/ollama:latest
     container_name: central-ollama
@@ -47,6 +63,14 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_LLM_LIBRARY=cuda12
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 10s
@@ -54,7 +78,7 @@ services:
       retries: 5
     networks:
       - central
-    # Note: Run `docker exec central-ollama ollama pull mistral:7b` after first start
+    # Note: Run `docker exec central-ollama ollama pull ministral-3:3b-instruct-2512-q4_K_M` after first start
 
   # ===== User API Service =====
   user-api:
@@ -90,10 +114,39 @@ services:
       - central
     volumes:
       - ./services/user-api:/app
-    command: >
-      bash -c "
-        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      "
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ===== HA Manager Service (Per-User Instance Management) =====
+  ha-manager:
+    build:
+      context: ./services/ha-manager
+      dockerfile: Dockerfile
+    container_name: central-ha-manager
+    ports:
+      - "8001:8001"
+    environment:
+      CENTRAL_PORT: 8001
+      CENTRAL_ENV: development
+      DATABASE_URL: postgresql://central_user:central_pass@postgres:5432/central_db
+      DOCKER_HOST: unix:///var/run/docker.sock
+      HA_IMAGE: homeassistant/home-assistant:latest
+      HA_NETWORK: central
+      DEBUG_MODE: "true"
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - central
+    volumes:
+      - ./services/ha-manager:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
   # ===== Prometheus Monitoring (Optional) =====
   prometheus:

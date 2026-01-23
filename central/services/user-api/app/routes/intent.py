@@ -4,7 +4,7 @@ Intent processing endpoints - the core pipeline
 
 from fastapi import APIRouter, HTTPException, status, Header, Depends
 from pydantic import BaseModel, Field, validator
-from typing import Optional
+from typing import Optional, AsyncGenerator
 from datetime import datetime
 import time
 import uuid
@@ -18,7 +18,10 @@ from app.constants import (
     VALIDATION_DEVICE_ID_REQUIRED,
     IntentStatus,
 )
-from app.exceptions import AuthenticationError, ValidationError
+from app.exceptions import AuthenticationError, ValidationError, LLMError
+from app.llm_service import ollama_service
+from app.security import get_user_id_from_token
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -45,6 +48,7 @@ class IntentResponse(BaseModel):
     response: str
     status: str  # Use IntentStatus enum values
     latency_ms: int
+    confidence: Optional[float] = None
 
 class ErrorResponse(BaseModel):
     request_id: str
@@ -53,7 +57,10 @@ class ErrorResponse(BaseModel):
     error_code: str
 
 @router.post("/intent", response_model=IntentResponse)
-async def process_intent(request: IntentRequest, authorization: str = Header(None)):
+async def process_intent(
+    request: IntentRequest,
+    authorization: str = Header(None),
+):
     """
     Core intent processing endpoint
     
@@ -75,36 +82,58 @@ async def process_intent(request: IntentRequest, authorization: str = Header(Non
             raise AuthenticationError("Missing or invalid authorization token")
         
         token: str = authorization.split(" ")[1]
-        # TODO: Verify JWT token
+        try:
+            user_id = get_user_id_from_token(token)
+        except Exception as e:
+            logger.warning("token_validation_failed", request_id=request_id, error=str(e))
+            raise AuthenticationError("Invalid token")
         
         logger.info(
             "intent_received",
             request_id=request_id,
             user_id=request.user_id,
             device_id=request.device_id,
-            text=request.text,
+            text=request.text[:50],
         )
         
         # 2. Load session context
-        # TODO: Load from Redis/DB
+        # TODO: Load from Redis/DB based on session_id or user_id
+        session_context = None
         
-        # 3. Call LLM service
-        # TODO: Call Ollama to recognize intent
-        llm_response = {
-            "intent": "turn_on",
-            "entity_id": "light.nappali",
-            "parameters": {"brightness": 255}
-        }
+        # 3. Call LLM service to recognize intent
+        try:
+            intent_data = await ollama_service.process_intent(
+                user_text=request.text,
+                ha_context=None,  # TODO: Load from user's HA instance
+                session_context=session_context,
+            )
+        except LLMError as e:
+            logger.error("llm_processing_failed", request_id=request_id, error=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="LLM service unavailable"
+            )
         
-        # 4. Execute on HA
-        # TODO: Call per-user HA instance
+        # Check confidence threshold
+        confidence = intent_data.get("confidence", 0.0)
+        if confidence < 0.5:
+            logger.warning(
+                "low_confidence_intent",
+                request_id=request_id,
+                intent=intent_data.get("intent"),
+                confidence=confidence,
+            )
+        
+        # 4. Execute on per-user HA instance
+        # TODO: Call per-user HA instance based on user_id
+        # For now, return LLM response directly
         ha_response = {
-            "state": "on",
-            "entity_id": "light.nappali"
+            "state": "executed",
+            "entity_id": intent_data.get("target", {}).get("name", "unknown")
         }
         
-        # 5. Generate response text
-        response_text = "Bekapcsoltam a nappali lámpát"
+        # 5. Generate response text (from LLM or enhanced based on HA result)
+        response_text = intent_data.get("response", "Parancs feldolgozva.")
         
         # 6. Log to audit trail
         latency_ms = int((time.time() - start_time) * 1000)
@@ -113,18 +142,20 @@ async def process_intent(request: IntentRequest, authorization: str = Header(Non
             "intent_success",
             request_id=request_id,
             user_id=request.user_id,
-            intent=llm_response.get("intent"),
+            intent=intent_data.get("intent"),
+            confidence=confidence,
             latency_ms=latency_ms,
         )
         
-        # TODO: Persist audit log to DB
+        # TODO: Persist audit log to DB using AsyncSession
         
         return IntentResponse(
             request_id=request_id,
-            intent=llm_response.get("intent", ""),
-            entity_id=llm_response.get("entity_id"),
+            intent=intent_data.get("intent", "unknown"),
+            entity_id=intent_data.get("target", {}).get("name"),
             response=response_text,
             status=IntentStatus.SUCCESS.value,
+            confidence=confidence,
             latency_ms=latency_ms,
         )
         
@@ -146,10 +177,13 @@ async def process_intent(request: IntentRequest, authorization: str = Header(Non
         )
 
 @router.post("/intent/batch")
-async def process_intent_batch(requests: list[IntentRequest]):
-    """Batch intent processing (minimal implementation)"""
+async def process_intent_batch(
+    requests: list[IntentRequest],
+    authorization: str = Header(None),
+):
+    """Batch intent processing"""
     responses = []
     for req in requests:
-        single = await process_intent(req, authorization="Bearer demo")
+        single = await process_intent(req, authorization=authorization)
         responses.append(single)
     return responses

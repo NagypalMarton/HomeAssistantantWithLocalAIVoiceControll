@@ -5,6 +5,7 @@ Configuration management using Pydantic Settings
 from pydantic_settings import BaseSettings
 from typing import List
 import os
+from cryptography.fernet import Fernet
 
 class Settings(BaseSettings):
     """Application settings from environment variables"""
@@ -29,11 +30,15 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 7
     
+    # Encryption (Token encryption for HA tokens, etc.)
+    encryption_key: str = ""  # Will be generated if not provided
+    
     # LLM (Ollama)
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "mistral:7b"
-    llm_timeout_seconds: int = 5
+    ollama_model: str = "ministral-3:3b-instruct-2512-q4_K_M"
+    llm_timeout_seconds: int = 30
     llm_context_window: int = 10
+    llm_temperature: float = 0.15  # Lower = more deterministic
     
     # Home Assistant
     ha_default_domain: str = "http://localhost:8123"
@@ -68,5 +73,14 @@ class Settings(BaseSettings):
                 "JWT_SECRET environment variable must be set to a secure random value. "
                 "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
             )
+        
+        # Generate encryption key if not provided
+        if not self.encryption_key:
+            self.encryption_key = Fernet.generate_key().decode()
+            if self.central_env == "production":
+                raise ValueError(
+                    "ENCRYPTION_KEY environment variable must be set in production. "
+                    "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+                )
 
 settings = Settings()

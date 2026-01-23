@@ -6,11 +6,22 @@ from datetime import datetime, timedelta
 from typing import Optional
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from cryptography.fernet import Fernet
 from app.config import settings
 from app.exceptions import AuthenticationError
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Token encryption cipher
+_cipher_suite = None
+
+def _get_cipher_suite() -> Fernet:
+    """Get or initialize the cipher suite for token encryption"""
+    global _cipher_suite
+    if _cipher_suite is None:
+        _cipher_suite = Fernet(settings.encryption_key.encode())
+    return _cipher_suite
 
 
 def hash_password(password: str) -> str:
@@ -117,3 +128,39 @@ def get_user_id_from_token(token: str) -> str:
         raise AuthenticationError("Token missing user ID")
     
     return user_id
+
+
+def encrypt_token(plain_token: str) -> str:
+    """
+    Encrypt a sensitive token (e.g., Home Assistant token)
+    
+    Args:
+        plain_token: Plain text token to encrypt
+        
+    Returns:
+        Encrypted token string (base64-encoded)
+    """
+    cipher = _get_cipher_suite()
+    encrypted = cipher.encrypt(plain_token.encode())
+    return encrypted.decode()
+
+
+def decrypt_token(encrypted_token: str) -> str:
+    """
+    Decrypt a sensitive token (e.g., Home Assistant token)
+    
+    Args:
+        encrypted_token: Encrypted token string (base64-encoded)
+        
+    Returns:
+        Plain text token
+        
+    Raises:
+        AuthenticationError: If decryption fails
+    """
+    try:
+        cipher = _get_cipher_suite()
+        decrypted = cipher.decrypt(encrypted_token.encode())
+        return decrypted.decode()
+    except Exception as e:
+        raise AuthenticationError(f"Failed to decrypt token: {str(e)}")
