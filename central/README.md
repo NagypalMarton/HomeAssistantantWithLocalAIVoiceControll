@@ -8,192 +8,311 @@
 
 A **Central Backend** az edge (Raspberry Pi) eszközöktől kapott felhasználói szövegeket feldolgozza:
 
-1. **Intent feldolgozás:** Ollama LLM-en keresztül felismeri a parancsot
+1. **Intent feldolgozás:** Ollama LLM-en keresztül (ministral-3:3b) felismeri a parancsot
 2. **Végrehajtás:** Per-user Home Assistant instance-en futtatja a parancsot
-3. **Válasz:** Választ küld vissza az edge-nek
+3. **Válasz:** Természetes nyelvű választ küld vissza az edge-nek
 
 Ez egy **diplomamunka projekt**, amely szakmailag konfigurálható, tesztelt és dokumentált.
 
-## Tervezett architektúra
+## Aktuális Architektúra
 
-### Komponensek
+### Service-ek
 
-#### 1. Home Assistant Manager
-- Felhasználónként dedikált HA instance-ok
-- Automatikus létrehozás regisztrációkor
-- Lifecycle management (create, update, delete)
-- REST API hozzáférés biztosítása
+```
+central-postgres      → PostgreSQL adatbázis (user, session, audit_log)
+central-redis         → Redis cache (session context)
+central-ollama        → Ollama LLM (GPU támogatás)
+central-user-api      → FastAPI (intent feldolgozás)
+central-ha-manager    → Docker-alapú HA instance menedzsment
+central-prometheus    → Prometheus monitoring (opcionális)
+```
 
-#### 2. LLM Service (Ollama)
-- Ministral 3 3B modell
-- Kontextuális parancsok feldolgozása
-- Home Assistant állapot lekérdezés
-- Intent generálás és végrehajtás
-- Request-szintű context izolálás
+### Komponensek részletezése
 
-#### 3. User Management API
-- Felhasználói regisztráció
-- Autentikáció és jogosultságok
-- HA instance hozzárendelés
-- Profil kezelés
+#### 1. **User API Service** (port 8000)
+- Intent feldolgozás pipeline
+- User autentikáció (JWT)
+- Session context kezelés
+- HA Manager API hívások
+- Audit logging
+- API endpoints:
+  - `POST /api/v1/auth/register` - Regisztráció
+  - `POST /api/v1/auth/login` - Bejelentkezés
+  - `POST /api/v1/intent` - Intent feldolgozás
+  - `GET /api/v1/health` - Health check
 
-#### 4. Admin UI
-- Felhasználók kezelése
-- Rendszer metrikák
-- Service health checks
-- Konfiguráció menedzsment
+#### 2. **HA Manager Service** (port 8001)
+- Per-user Docker-alapú HA instance lifecycle management
+- Automatikus HA container létrehozás regisztrációkor
+- Port allokáció (8200-8300)
+- Volumen kezelés
+- Container health monitoring
+- API endpoints:
+  - `POST /api/v1/ha/instance` - HA instance létrehozás
+  - `GET /api/v1/ha/instance/{user_id}` - HA instance lekérdezés
+  - `DELETE /api/v1/ha/instance/{user_id}` - HA instance törlés
+  - `GET /api/v1/ha/instance/{user_id}/status` - Status lekérdezés
 
-#### 5. Monitoring (Zabbix)
-- Kubernetes cluster monitoring
-- HA instance health checks
-- LLM metrikák (response time, token usage)
-- Edge eszköz monitoring (HTTP exportereken keresztül)
+#### 3. **Ollama LLM Service** (port 11434)
+- **Modell:** `ministral-3:3b-instruct-2512-q4_K_M`
+- **GPU accelerated** (NVIDIA, 4GB vRAM)
+- **Chat template:** Ministral-3 natív format (`[SYSTEM_PROMPT]...[/SYSTEM_PROMPT]`, `[INST]...[/INST]`)
+- **Temperature:** 0.15 (determinisztikus output)
+- **Context window:** Utolsó 10 üzenet
+- Intent felismerés JSON outputtal
+- Magyar nyelvű prompt engineering
+- Timeout: 30 másodperc
 
-## Technológiai stack
+#### 4. **Adatbázis** (port 5432)
+- PostgreSQL 16
+- Táblák:
+  - `users` - felhasználók (email, ha_token_encrypted, role)
+  - `sessions` - aktív session-ök (context window)
+  - `audit_log` - parancs históriája (input, intent, HA response, latency)
+  - `ha_instances` - per-user HA container metadatai
+
+#### 5. **Redis Cache** (port 6379)
+- Session context (rolling window)
+- Token blacklist (logout)
+- Rate limiting counters
+
+## Technológiai Stack
+
+### Backend
+- **Python 3.11**
+- **FastAPI** - REST API framework
+- **SQLAlchemy** - ORM (async)
+- **asyncpg** - PostgreSQL async driver
+- **Pydantic** - Data validation
+- **python-jose** - JWT handling
+- **cryptography** - Token encryption (Fernet)
 
 ### Infrastruktúra
-- **Kubernetes**: Container orchestration
-- **Terraform**: Infrastructure as Code
-- **Docker**: Konténerizáció
-- **Helm**: Kubernetes package management
+- **Docker Compose** - Service orchestration (dev/staging)
+- **PostgreSQL 16** - Relational database
+- **Redis 7** - Cache & sessions
+- **Ollama** - LLM inference (GPU)
 
-### Backend szolgáltatások
-- **Python FastAPI**: REST API-k
-- **PostgreSQL**: Felhasználói adatok, konfiguráció
-- **Redis**: Session cache, queue
-- **Ollama**: LLM inference
+### Monitoring
+- **Prometheus** - Metrics collection
+- **Structlog** - Structured JSON logging
+- **Zabbix** - (külön Docker Compose, később)
 
-### Monitoring és logging
-- **Zabbix**: Metrika gyűjtés és riasztás
-- **Prometheus**: (opcionális) Kubernetes metrikák
-- **Grafana**: (opcionális) Dashboard-ok
-
-## Könyvtárstruktúra (tervezett)
-
-```
-central/
-├── kubernetes/
-│   ├── base/                 # Base manifests
-│   ├── overlays/             # Kustomize overlays
-│   │   ├── dev/
-│   │   ├── staging/
-│   │   └── prod/
-│   └── helm/                 # Helm charts
-│
-├── terraform/
-│   ├── modules/
-│   │   ├── k8s-cluster/
-│   │   ├── ha-instance/
-│   │   └── networking/
-│   └── environments/
-│       ├── dev/
-│       └── prod/
-│
-├── services/
-│   ├── ha-manager/
-│   │   ├── Dockerfile
-│   │   ├── app/
-│   │   └── requirements.txt
-│   │
-│   ├── llm-service/
-│   │   ├── Dockerfile
-│   │   ├── app/
-│   │   └── requirements.txt
-│   │
-│   ├── user-api/
-│   │   ├── Dockerfile
-│   │   ├── app/
-│   │   └── requirements.txt
-│   │
-│   ├── admin-ui/
-│   │   ├── Dockerfile
-│   │   ├── frontend/
-│   │   └── package.json
-│   │
-│   └── monitoring/
-│       └── zabbix/
-│
-├── scripts/
-│   ├── deploy.sh
-│   └── setup-cluster.sh
-│
-└── README.md
-```
-
-## Telepítés (tervezett)
+## Telepítés & Indítás
 
 ### Előfeltételek
-- Kubernetes cluster (v1.25+)
-- kubectl telepítve
-- Terraform v1.5+
-- GPU node(ok) az LLM futtatásához
+
+- **Docker Engine** (GPU support: NVIDIA Docker Runtime)
+- **Docker Compose** v2.0+
+- **4GB+ VRAM GPU** (Ollama/Ministral-3 futtatásához)
+- **4GB RAM minimum** (Docker containers)
+- **20GB szabad tárhelyre** (HA instances + Ollama modellek)
 
 ### Lépések
 
-1. **Infrastruktúra létrehozása**
+1. **Repository klónozása**
 ```bash
-cd terraform/environments/prod
-terraform init
-terraform plan
-terraform apply
+cd central
 ```
 
-2. **Kubernetes szolgáltatások telepítése**
+2. **Környezeti változók beállítása**
 ```bash
-cd kubernetes
-kubectl apply -k overlays/prod/
+cp .env.example .env
+# Módosítsd a szükséges értékeket:
+# - JWT_SECRET: python -c 'import secrets; print(secrets.token_urlsafe(32))'
+# - ENCRYPTION_KEY: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
 ```
 
-3. **Zabbix monitoring konfigurálása**
+3. **Docker Compose indítása**
 ```bash
-cd services/monitoring/zabbix
-./setup-monitoring.sh
+docker-compose up -d
 ```
 
-## API végpontok (tervezett)
+4. **Ollama modell betöltése**
+```bash
+docker exec central-ollama ollama pull ministral-3:3b-instruct-2512-q4_K_M
+```
 
-### User Management
-- `POST /api/v1/auth/register` - Felhasználó regisztráció
-- `POST /api/v1/auth/login` - Bejelentkezés
-- `GET /api/v1/user/profile` - Profil lekérdezés
-- `GET /api/v1/user/ha-instance` - HA instance URL
+5. **Service-ek ellenőrzése**
+```bash
+docker-compose ps
+docker-compose logs -f user-api
+```
 
-### HA Manager
-- `POST /api/v1/ha/instance` - HA instance létrehozás
-- `GET /api/v1/ha/instance/{user_id}` - HA instance lekérdezés
-- `DELETE /api/v1/ha/instance/{user_id}` - HA instance törlés
+6. **Health check**
+```bash
+curl http://localhost:8000/api/v1/health
+curl http://localhost:8001/api/v1/health
+curl http://localhost:11434/api/tags
+```
 
-### LLM Service
-- `POST /api/v1/llm/intent` - Intent feldolgozás
-- `POST /api/v1/llm/automation` - Automatizmus generálás
+## API Végpontok
 
-## Fejlesztési státusz
+### Intent Processing
+```
+POST /api/v1/intent
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
 
-- [ ] Kubernetes cluster setup
-- [ ] Terraform modulok
-- [ ] HA Manager service
-- [ ] User Management API
-- [ ] LLM Service integráció
-- [ ] Admin UI
-- [ ] Zabbix monitoring
-- [ ] CI/CD pipeline
-- [ ] Dokumentáció
+{
+  "user_id": "uuid",
+  "device_id": "raspberry-pi-1",
+  "text": "Kapcsold be a nappali lámpát",
+  "session_id": "optional-session-uuid"
+}
 
-## Biztonsági szempontok
+Response:
+{
+  "request_id": "uuid",
+  "intent": "turn_on",
+  "entity_id": "light.nappali",
+  "response": "Bekapcsoltam a nappali lámpát.",
+  "status": "success",
+  "confidence": 0.95,
+  "latency_ms": 245
+}
+```
 
-- TLS/SSL minden kommunikációhoz
-- JWT-alapú autentikáció
-- Role-based access control (RBAC)
-- Felhasználói adatok titkosítása
-- Network policies Kubernetes-ben
-- Secrets management (Kubernetes Secrets / Vault)
+### HA Instance Management
+```
+POST /api/v1/ha/instance
+{
+  "user_id": "uuid"
+}
 
-## Kapcsolódó dokumentumok
+Response:
+{
+  "user_id": "uuid",
+  "container_id": "abc123...",
+  "container_name": "ha-user-12345678",
+  "status": "running",
+  "host_port": 8200,
+  "timezone": "Europe/Budapest"
+}
+```
 
-- [Szoftverkövetelmény-specifikáció](../docs/mikrobi_okosotthon_rendszer_srs.md)
+## Fejlesztési Státusz
+
+### Implementálva ✅
+- [x] Docker Compose setup (GPU support)
+- [x] User API alapstruktúra
+- [x] Ollama LLM service integration
+- [x] Intent processing pipeline (LLM)
+- [x] Token encryption (Fernet)
+- [x] HA Manager service alapstruktúra
+- [x] Docker container management
+- [x] PostgreSQL + Redis setup
+
+### TODO 🚧
+- [ ] Alembic migrations
+- [ ] HA Manager - User API integráció
+- [ ] Audit logging (DB persistence)
+- [ ] Session context management (Redis)
+- [ ] HA parancs végrehajtás integrációja
+- [ ] Rate limiting implementáció
+- [ ] Error handling & fallbacks
+- [ ] Unit & integration tests
+- [ ] Zabbix monitoring setup
+- [ ] Performance optimization
+
+## Biztonsági Aspektusok
+
+- ✅ JWT-alapú autentikáció
+- ✅ Token encryption (Home Assistant API tokenekhez)
+- ✅ SQL injection védelem (SQLAlchemy parameterization)
+- ✅ CORS configured
+- ✅ Per-user HA instance izoláltsága (Docker network)
+- 🚧 Rate limiting
+- 🚧 Request validation
+- 🚧 Audit trail
+
+## Monitoring & Logging
+
+### Strukturált Logging
+- **Format:** JSON
+- **Library:** structlog
+- **Szintek:** INFO, WARNING, ERROR
+- **Mezők:** timestamp, request_id, user_id, latency_ms, error
+
+### Prometheus Metrikák (opcionális)
+- Request latency
+- Request count by endpoint
+- Error rate
+- LLM response time
+- Database query duration
+
+### Zabbix Monitoring (külön Docker Compose)
+- Service health checks
+- Container status
+- Docker resource usage
+- Database metrics
+
+## Fejlesztői Útmutató
+
+### Helyi fejlesztés
+
+1. **Python venv**
+```bash
+cd services/user-api
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# vagy: venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
+
+2. **Database setup**
+```bash
+# Docker postgres start
+docker-compose up -d postgres redis ollama
+
+# Migrations (később Alembic)
+# sqlalchemy models automatikusan létrehoznak táblákat init_db-vel
+```
+
+3. **Local development**
+```bash
+cd services/user-api
+uvicorn main:app --reload --port 8000
+```
+
+### Testing
+
+```bash
+# Unit tests
+pytest services/user-api/tests/ -v
+
+# Coverage
+pytest --cov=app services/user-api/tests/
+```
+
+## Troubleshooting
+
+### Ollama GPU error
+```
+Error: CUDA device not found
+→ Ellenőrizd az NVIDIA Docker Runtime-ot: docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
+```
+
+### Port már foglalt
+```
+docker-compose down
+# vagy: lsof -i :8000 / netstat -tulpn
+```
+
+### Database connection error
+```
+docker-compose logs postgres
+# Check: POSTGRES_USER, POSTGRES_PASSWORD env vars
+```
+
+## Kapcsolódó Dokumentumok
+
+- [Szoftverkövetelmény-specifikáció](../docs/central_srs.md)
 - [Edge telepítési útmutató](../edge/README.md)
 - [Projekt struktúra](../README.md)
+- [Zabbix monitoring](./monitoring/ZABBIX.md) (később)
 
 ## Közreműködés
 
-A central backend fejlesztése folyamatban. Kérdések és javaslatok várhatóak!
+A central backend fejlesztése folyamatban. Kérdések, PR-ok és javaslatok várhatóak! 🚀
+
