@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Setup script for Edge satellite configuration
-# Asks for HA URL and token, generates random device name
+# Unified start script: setup + Docker stack startup
+# Automatically configures HA connection if .env doesn't exist, then starts containers
 
 set -euo pipefail
 
@@ -59,8 +59,8 @@ validate_ha_token() {
   fi
 }
 
-# Main setup
-main() {
+# Setup function (runs if .env doesn't exist)
+run_setup() {
   echo ""
   echo "╔════════════════════════════════════════════════════════╗"
   echo "║         Edge Satellite Setup Configuration             ║"
@@ -125,10 +125,29 @@ EOF
   echo "HA URL:      $HA_URL"
   echo "Token:       ••••••••••••••••"
   echo ""
-  log_info "Next steps:"
-  echo "  1. Start the stack:    docker compose up -d"
-  echo "  2. Check logs:         docker compose logs -f"
-  echo "  3. Monitor health:     systemctl --user status ha-healthwatch.service"
+}
+
+# Main
+main() {
+  # Check if .env exists, if not run setup
+  if [[ ! -f "$ENV_FILE" ]]; then
+    log_warn ".env file not found, running initial setup..."
+    echo ""
+    run_setup
+  else
+    log_info "Using existing configuration from .env"
+  fi
+
+  # Start Docker stack
+  echo ""
+  log_info "Starting Docker Compose stack..."
+  cd "$SCRIPT_DIR"
+  docker compose up -d
+
+  echo ""
+  log_info "Stack started successfully!"
+  log_info "Check logs with: docker compose logs -f"
+  log_info "Check status with: docker compose ps"
   echo ""
 }
 

@@ -6,9 +6,8 @@
 
 🎙️ Raspberry Pi alapú hangvezérlésű satellite eszköz magyar nyelvű Home Assistant integrációval
 
-## TL;DR (3 lépés)
-- `./setup.sh` – megadod a HA URL-t és a long-lived tokent, létrejön a `.env`
-- `docker compose up -d` – letölti a modelleket és elindítja a konténereket
+## TL;DR (2 lépés)
+- `./start.sh` – megadod a HA URL-t és tokent (ha még nincs `.env`), majd automatikusan elindul a Docker stack
 - Home Assistant → Add Integration → Wyoming → host: `<pi-ip>`, port: `10700`
 
 ## Áttekintés
@@ -41,31 +40,23 @@ Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wy
 - **Docker Engine** és **Docker Compose** telepítve
 - **Home Assistant** instance cloudban futó LLM-mel és Wyoming Integration-nel
 
-### 2. Konfigurálás
-
-Futtasd a setup scriptet:
+### 2. Indítás
 
 ```bash
 cd edge
-chmod +x setup.sh
-./setup.sh
+chmod +x start.sh
+./start.sh
 ```
 
-**Mit kell megadni:**
+**Első futásnál** a script bekéri:
 1. **Home Assistant URL** (pl. `http://192.168.1.100:8123` vagy `https://your-ha-domain.duckdns.org`)
 2. **Home Assistant Long-Lived Access Token**
    - Home Assistant → Settings → Developer Tools → Create Long-Lived Access Token
-   - Token másolása és beszúrása a promptban
+   - Token másolása és beszúrása
 
-**Automatikus:** Az eszköz neve random generálódik (pl. `BrightSpeaker456`).
+**Automatikus:** Az eszköz neve random generálódik (pl. `BrightSpeaker456`), beállítások `.env`-be mentődnek, majd azonnal elindul a Docker stack.
 
-A beállítások a `.env` fájlba kerülnek, amely a health watcherhez és dockerhez kell.
-
-### 3. Rendszer indítása
-
-```bash
-docker compose up -d
-```
+**Későbbi indítások:** Ha a `.env` már létezik, azonnal indítja a konténereket konfiguráció bekérése nélkül.
 
 **Első indulás ideje:** ~5-10 perc (modell letöltések)
 
@@ -74,10 +65,10 @@ docker compose up -d
 **Státusz ellenőrzése:**
 ```bash
 docker compose ps
-docker compose logs -f wyoming-satellite  # ostattelés naplójának megtekintése
+docker compose logs -f wyoming-satellite  # satellite naplójának megtekintése
 ```
 
-### Frissítés / új verzió telepítése
+### 3. Frissítés / új verzió telepítése
 
 ```bash
 cd edge
@@ -176,9 +167,10 @@ Szerkeszd közvetlenül a `.env` fájlt:
 nano .env
 ```
 
-Majd indítsd újra a health watchert:
+Majd indítsd újra a rendszert:
 
 ```bash
+./start.sh  # vagy: docker compose restart
 systemctl --user restart ha-healthwatch-enhanced.service
 ```
 
@@ -188,7 +180,7 @@ Az **Enhanced HA Health Watcher** automatikusan figyeli a Home Assistant elérhe
 
 #### Telepítés
 
-A service automatikusan települ a `setup.sh` futtatásakor. Manuális indításhoz:
+A service automatikusan települ a `start.sh` első futtatásakor (amikor létrejön a `.env`). Manuális indításhoz:
 
 ```bash
 systemctl --user enable ha-healthwatch-enhanced.service

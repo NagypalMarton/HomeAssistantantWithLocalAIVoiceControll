@@ -3,8 +3,7 @@
 🎙️ Edge-Cloud architektúrájú, Wyoming protokoll alapú hangvezérelt okosotthon rendszer
 
 ## TL;DR Edge indítás (Raspberry Pi)
-- `cd edge && ./setup.sh` – add meg a HA URL-t és long-lived tokent, létrejön a `.env`
-- `docker compose up -d` – letölti a modelleket és elindítja a szolgáltatásokat
+- `cd edge && ./start.sh` – add meg a HA URL-t és tokent (első futáskor), automatikusan elindul a Docker stack
 - Home Assistant → Add Integration → Wyoming → host: `<pi-ip>`, port: `10700`
 
 ## 📁 Projekt struktúra
