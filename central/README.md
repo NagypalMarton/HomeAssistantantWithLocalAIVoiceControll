@@ -115,31 +115,46 @@ central-prometheus    → Prometheus monitoring (opcionális)
 cd central
 ```
 
-2. **Környezeti változók beállítása**
+2. **Automatikus indítás (egyszerű módszer)**
+
+**Linux/Mac:**
 ```bash
-cp .env.example .env
-# Módosítsd a szükséges értékeket:
-# - JWT_SECRET: python -c 'import secrets; print(secrets.token_urlsafe(32))'
-# - ENCRYPTION_KEY: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+chmod +x start.sh
+./start.sh
 ```
 
-3. **Docker Compose indítása**
+**Windows (PowerShell):**
+```powershell
+.\start.ps1
+```
+
+Ez a script automatikusan:
+- ✅ Létrehozza a `.env` fájlt ha nincs
+- ✅ Generál biztonságos `JWT_SECRET` és `ENCRYPTION_KEY` kulcsokat
+- ✅ Elindítja az összes Docker service-t
+- ✅ Ellenőrzi a health check-eket
+
+**Vagy manuális indítás:**
 ```bash
+# 1. Environment beállítása (első alkalommal)
+docker-compose --profile setup run --rm init
+
+# 2. Services indítása
 docker-compose up -d
 ```
 
-4. **Ollama modell betöltése**
+3. **Ollama modell betöltése**
 ```bash
 docker exec central-ollama ollama pull ministral-3:3b-instruct-2512-q4_K_M
 ```
 
-5. **Service-ek ellenőrzése**
+4. **Service-ek ellenőrzése**
 ```bash
 docker-compose ps
 docker-compose logs -f user-api
 ```
 
-6. **Health check**
+5. **Health check**
 ```bash
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8001/api/v1/health

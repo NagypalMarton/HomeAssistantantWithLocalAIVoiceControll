@@ -274,6 +274,18 @@ curl -X POST http://localhost:8000/api/v1/intent \
   }'
 ```
 
+**VAGY használd az automatikus indító script-et:**
+
+```bash
+# Linux/Mac
+./start.sh
+
+# Windows
+.\start.ps1
+```
+
+Ez automatikusan generálja a hiányzó JWT_SECRET és ENCRYPTION_KEY kulcsokat!
+
 ## 📚 Függőségek & Verzió Info
 
 - **Python:** 3.11

@@ -1,6 +1,22 @@
 version: '3.9'
 
 services:
+  # ===== Init Service (Auto-generate secrets) =====
+  init:
+    image: python:3.11-slim
+    container_name: central-init
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      bash -c "
+        pip install --no-cache-dir cryptography &&
+        chmod +x /app/scripts/init-env.sh &&
+        /app/scripts/init-env.sh
+      "
+    profiles:
+      - setup
+
   # ===== PostgreSQL Database =====
   postgres:
     image: postgres:16-alpine
