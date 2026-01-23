@@ -1,0 +1,9 @@
+[2026-01-23 23:08:38] info: 	z2m: Logging to console, file (filename: log.log)
+[2026-01-23 23:08:38] info: 	z2m: Starting Zigbee2MQTT version 2.7.2 (commit #3a49c95786c2fba749e7696aab4cc38e467d2c4c
+)
+[2026-01-23 23:08:38] info: 	z2m: Starting zigbee-herdsman (8.0.1)
+[2026-01-23 23:08:39] warning: 	zh:ezsp: 'ezsp' driver is deprecated and will only remain to provide support for older firmware (pre 7.4.x). Migration to 'ember' is recommended. If using Zigbee2MQTT see https://github.com/Koenkk/zigbee2mqtt/discussions/21462
+[2026-01-23 23:08:49] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":-1} after 10000ms
+[2026-01-23 23:08:49] error: 	zh:ezsp:ezsp: Connection attempt 1 error: Error: Failure to connect
+[2026-01-23 23:08:59] error: 	zh:ezsp:uart: --> Error: Error: {"sequence":-1} after 10000ms
+[2026-01-23 23:08:59] error: 	zh:ezsp:uart: Failed to reset on Error Frame: Error: Failure to connect
