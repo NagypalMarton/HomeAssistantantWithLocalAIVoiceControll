@@ -114,10 +114,7 @@ services:
       - central
     volumes:
       - ./services/user-api:/app
-    command: >
-      bash -c "      "
-        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      "
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # ===== HA Manager Service (Per-User Instance Management) =====
   ha-manager:
@@ -149,10 +146,7 @@ services:
     volumes:
       - ./services/ha-manager:/app
       - /var/run/docker.sock:/var/run/docker.sock
-    command: >
-      bash -c "
-        uvicorn main:app --host 0.0.0.0 --port 8001 --reload
-      ""
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
   # ===== Prometheus Monitoring (Optional) =====
   prometheus:
