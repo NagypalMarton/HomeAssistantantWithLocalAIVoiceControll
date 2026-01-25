@@ -10,7 +10,13 @@ services:
     command: >
       --uri tcp://0.0.0.0:10400
       --models-dir /models
-      --preload-model hey_jarvis
+      --preload-model alexa
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import socket,sys;s=socket.socket();s.settimeout(2);sys.exit(s.connect_ex(('localhost',10400))!=0)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   wyoming-whisper:
     image: rhasspy/wyoming-whisper:latest
@@ -59,13 +65,14 @@ services:
       --mic-command 'arecord -D plughw:3,0 -r 16000 -c 1 -f S16_LE -t raw'
       --snd-command 'aplay -D plughw:4,0 -r 22050 -c 1 -f S16_LE -t raw'
       --wake-uri 'tcp://wyoming-openwakeword:10400'
-      --wake-word-name 'hey_jarvis'
-      --vad
-      --vad-threshold 0.5
+      --wake-word-name 'alexa'
     depends_on:
-      - wyoming-openwakeword
-      - wyoming-whisper
-      - wyoming-piper
+      wyoming-openwakeword:
+        condition: service_healthy
+      wyoming-whisper:
+        condition: service_started
+      wyoming-piper:
+        condition: service_started
   mosquitto:
     image: eclipse-mosquitto:2.0.22
     restart: unless-stopped
