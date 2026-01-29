@@ -16,7 +16,7 @@ Docker-alapú magyar nyelvű hangvezérelt rendszer Raspberry Pi 4-hez, amely Wy
 
 ### Szolgáltatások
 
-- **Wyoming-OpenWakeWord**: "Hey Jarvis" ébresztőszó felismerés (offline)
+- **Wyoming-OpenWakeWord**: "Alexa" ébresztőszó felismerés (offline)
 - **Wyoming-Whisper**: Magyar beszédfelismerés (ASR) - tiny-int8 modell (offline)
 - **Wyoming-Piper**: Magyar hangszintézis (TTS) - hu_HU-imre-medium hang (offline)
 - **Wyoming Satellite**: Koordinálja a szolgáltatásokat, mikrofon/hangszóró kezelés
