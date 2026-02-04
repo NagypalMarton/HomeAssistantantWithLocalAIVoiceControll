@@ -62,7 +62,7 @@ A központi backend implementációja fejlesztés alatt: [central/README.md](cen
 - **LLM Service**: Ollama alapú intelligens intent feldolgozás (Ministral 3 3B)
 - **User Management**: Regisztráció, autentikáció, jogosultságok
 - **Admin UI**: Rendszer adminisztráció és monitoring
-- **Monitoring**: Zabbix alapú metrika gyűjtés és riasztás
+- **Monitoring**: Prometheus alapú metrika gyűjtés és riasztás
 
 ## 🔄 Wyoming protokoll
 
@@ -98,7 +98,7 @@ A rendszer a [Wyoming protokollt](https://github.com/rhasspy/wyoming) használja
 - Multi-tenant felhasználókezelés
 - Ollama LLM integráció
 - Terraform automatizáció
-- Zabbix monitoring
+- Prometheus monitoring integrációja
 
 ### 📋 Tervezett
 - Egyedi "Mikrobi" wake-word modell

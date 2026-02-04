@@ -42,8 +42,7 @@
 | Döntés | Indoklás |
 |--------|----------|
 | **Structlog (JSON)** | Searchable, centralized logging |
-| **Prometheus (opcionális)** | Metrics collection |
-| **Zabbix (külön Compose)** | Production-grade monitoring |
+| **Prometheus** | Metrics collection, cloud-native monitoring |
 
 ## 🏗️ Aktuális Implementáció
 

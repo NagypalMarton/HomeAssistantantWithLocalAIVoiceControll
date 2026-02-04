@@ -127,7 +127,6 @@
 ### Monitoring
 - [ ] Prometheus metrics
 - [ ] Grafana dashboards (optional)
-- [ ] Zabbix integration (separate Docker Compose)
 - [ ] Alert rules
 
 ### Testing
@@ -235,7 +234,7 @@ curl -X POST http://localhost:8000/api/v1/intent \
 - [ ] Rate limiting implemented
 - [ ] Audit trail working
 - [ ] Database backups automated
-- [ ] Monitoring setup (Zabbix)
+- [ ] Monitoring setup (Prometheus)
 - [ ] Security review
 - [ ] Performance benchmarks
 - [ ] Load testing (100+ concurrent users)

@@ -96,7 +96,6 @@ central-prometheus    → Prometheus monitoring (opcionális)
 ### Monitoring
 - **Prometheus** - Metrics collection
 - **Structlog** - Structured JSON logging
-- **Zabbix** - (külön Docker Compose, később)
 
 ## Telepítés & Indítás
 
@@ -227,7 +226,7 @@ Response:
 - [ ] Rate limiting implementáció
 - [ ] Error handling & fallbacks
 - [ ] Unit & integration tests
-- [ ] Zabbix monitoring setup
+- [ ] Prometheus metrics refinement
 - [ ] Performance optimization
 
 ## Biztonsági Aspektusok
@@ -249,17 +248,14 @@ Response:
 - **Szintek:** INFO, WARNING, ERROR
 - **Mezők:** timestamp, request_id, user_id, latency_ms, error
 
-### Prometheus Metrikák (opcionális)
+### Prometheus Metrikák
 - Request latency
 - Request count by endpoint
 - Error rate
 - LLM response time
 - Database query duration
-
-### Zabbix Monitoring (külön Docker Compose)
 - Service health checks
-- Container status
-- Docker resource usage
+- Container resource usage
 - Database metrics
 
 ## Fejlesztői Útmutató

@@ -10,7 +10,7 @@ A specifikáció lefedi:
 - Home Assistant integrációt (Conversation API)
 - Konténerizált (Docker, Kubernetes) futtatási környezetet
 - Automatizált infrastruktúrát (Terraform)
-- Monitorozást (Zabbix)
+- Prometheus-alapú monitorozást
 - Wyoming protokoll alapú voice assistant szolgáltatásokat
 
 A dokumentum **nem tér ki** olyan jövőbeli funkciókra, amelyek a beszélgetés során kifejezetten kizárásra kerültek.
@@ -39,7 +39,7 @@ A rendszer két fő részből áll:
   - Home Assistant instance-ok (felhasználónként)
   - LLM szolgáltatás (Ollama - tervezett)
   - Admin és felhasználói felületek (tervezett)
-  - Monitoring (Zabbix - tervezett)
+  - Monitoring (Prometheus - tervezett)
 
 A Raspberry Pi **nem kommunikál közvetlenül IoT eszközökkel**, kizárólag a hozzá rendelt Home Assistant REST API-n (Conversation API) keresztül.
 
@@ -163,7 +163,7 @@ Mikrofon → Wyoming-OpenWakeWord (Wake-word detektálás)
 - Backend és egyéb szolgáltatások: admin által engedélyezve
 
 ## 5.4 Monitorozás
-- Zabbix központi telepítéssel
+- Prometheus cloud-native monitorozással
 - Monitorozott elemek:
   - Kubernetes és Docker komponensek
   - Home Assistant API

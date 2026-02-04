@@ -203,7 +203,7 @@ Response: {
 }
 ```
 
-**REQ-F-015:** Metrikák nyújtása Zabbix/Prometheus számára.
+**REQ-F-015:** Metrikák nyújtása Prometheus számára.
 - Intent latency (p50, p95, p99)
 - LLM token/sec
 - HA service call success rate
@@ -289,7 +289,6 @@ Response: {
 
 **REQ-NF-012:** Monitoring és alerting.
 - Prometheus metrics: Intent latency, error rate, LLM availability
-- Zabbix: HA instance status per user, resource usage
 - Alerts: LLM down, HA down per user, latency spike (>3s p95)
 
 **REQ-NF-013:** Konfigurálhatóság.
@@ -417,8 +416,7 @@ central/
 │   │   └── requirements.txt
 │   │
 │   └── monitoring/
-│       ├── prometheus_exporter.py
-│       └── zabbix_agent_config
+│       └── prometheus_exporter.py
 │
 ├── kubernetes/
 │   ├── base/
@@ -717,7 +715,6 @@ AUDIT_BATCH_INSERT=100
 
 # Monitoring
 PROMETHEUS_PORT=9090
-ZABBIX_AGENT_PORT=10050
 LOG_LEVEL=INFO
 
 # Security
