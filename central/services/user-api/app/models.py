@@ -15,6 +15,7 @@ from app.constants import (
     ROLE_MAX_LENGTH,
     STATUS_MAX_LENGTH,
     REQUEST_ID_LENGTH,
+    TOKEN_JTI_LENGTH,
     UserRole,
 )
 
@@ -60,3 +61,15 @@ class AuditLog(Base):
     llm_tokens = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
     request_id = Column(String(REQUEST_ID_LENGTH), unique=True, index=True)
+
+
+class RefreshToken(Base):
+    """Refresh token persistence model"""
+    __tablename__ = "refresh_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    token_jti = Column(String(TOKEN_JTI_LENGTH), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

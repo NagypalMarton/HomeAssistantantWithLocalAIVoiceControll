@@ -3,20 +3,17 @@ MicroPi Central - HA Manager Service
 Manages per-user Home Assistant instances via Docker
 """
 
-import logging
-import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import structlog
 
 # Import routes
 from app.routes import health, ha_instances
 from app.middleware import RequestIDMiddleware, LoggingMiddleware
-from app.database import init_db
+from app.database import init_db, engine
 from app.config import settings
 
 # Configure logging
@@ -38,15 +35,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-# Database setup
-DATABASE_URL = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=settings.database_echo,
-    pool_size=settings.database_pool_size,
-)
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -93,8 +81,3 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(ha_instances.router, prefix="/api/v1", tags=["ha_instances"])
 
-# Dependency for session
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency: Get database session"""
-    async with AsyncSessionLocal() as session:
-        yield session

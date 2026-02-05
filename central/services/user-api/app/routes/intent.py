@@ -4,11 +4,12 @@ Intent processing endpoints - the core pipeline
 
 from fastapi import APIRouter, HTTPException, status, Header, Depends
 from pydantic import BaseModel, Field, validator
-from typing import Optional, AsyncGenerator
+from typing import Optional
 from datetime import datetime
 import time
 import uuid
 import structlog
+import redis.asyncio as redis
 from app.constants import (
     TEXT_MIN_LENGTH,
     TEXT_MAX_LENGTH,
@@ -18,9 +19,13 @@ from app.constants import (
     VALIDATION_DEVICE_ID_REQUIRED,
     IntentStatus,
 )
-from app.exceptions import AuthenticationError, ValidationError, LLMError
+from app.exceptions import AuthenticationError, AuthorizationError, LLMError
+from app.database import get_db
 from app.llm_service import ollama_service
+from app.models import AuditLog
+from app.redis_client import get_redis
 from app.security import get_user_id_from_token
+from app.session_store import append_session_context, build_context_entry, get_session_context
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -60,6 +65,8 @@ class ErrorResponse(BaseModel):
 async def process_intent(
     request: IntentRequest,
     authorization: str = Header(None),
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis),
 ):
     """
     Core intent processing endpoint
@@ -87,6 +94,15 @@ async def process_intent(
         except Exception as e:
             logger.warning("token_validation_failed", request_id=request_id, error=str(e))
             raise AuthenticationError("Invalid token")
+
+        if request.user_id != user_id:
+            logger.warning(
+                "user_id_mismatch",
+                request_id=request_id,
+                token_user_id=user_id,
+                request_user_id=request.user_id,
+            )
+            raise AuthorizationError("User ID mismatch")
         
         logger.info(
             "intent_received",
@@ -97,8 +113,11 @@ async def process_intent(
         )
         
         # 2. Load session context
-        # TODO: Load from Redis/DB based on session_id or user_id
-        session_context = None
+        session_context = await get_session_context(
+            redis_client,
+            user_id=user_id,
+            session_id=request.session_id,
+        )
         
         # 3. Call LLM service to recognize intent
         try:
@@ -147,7 +166,33 @@ async def process_intent(
             latency_ms=latency_ms,
         )
         
-        # TODO: Persist audit log to DB using AsyncSession
+        db.add(
+            AuditLog(
+                timestamp=datetime.utcnow(),
+                user_id=uuid.UUID(user_id),
+                device_id=request.device_id,
+                input_text=request.text,
+                intent=intent_data,
+                ha_response=ha_response,
+                status=IntentStatus.SUCCESS.value,
+                latency_ms=latency_ms,
+                llm_tokens=intent_data.get("token_count"),
+                request_id=request_id,
+            )
+        )
+
+        await append_session_context(
+            redis_client,
+            user_id=user_id,
+            session_id=request.session_id,
+            entry=build_context_entry("user", request.text),
+        )
+        await append_session_context(
+            redis_client,
+            user_id=user_id,
+            session_id=request.session_id,
+            entry=build_context_entry("assistant", response_text),
+        )
         
         return IntentResponse(
             request_id=request_id,

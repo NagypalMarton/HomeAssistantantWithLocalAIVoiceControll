@@ -11,7 +11,7 @@ from app.config import settings
 from app.exceptions import AuthenticationError
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # Token encryption cipher
 _cipher_suite = None

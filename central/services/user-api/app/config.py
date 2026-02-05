@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
     redis_pool_size: int = 20
+    session_ttl_seconds: int = 86400
     
     # JWT & Auth
     jwt_secret: str  # Required - must be set via environment variable

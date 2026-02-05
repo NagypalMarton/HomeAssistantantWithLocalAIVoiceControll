@@ -3,21 +3,18 @@ MicroPi Central Backend - User API Service
 Main FastAPI application entry point
 """
 
-import logging
-import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import structlog
 
 # Import routes
 from app.routes import intent, auth, health, metrics
 from app.middleware import RequestIDMiddleware, LoggingMiddleware
 from app.prometheus_metrics import PrometheusMiddleware
-from app.database import init_db
+from app.database import init_db, engine
 from app.config import settings
 
 # Configure logging
@@ -39,15 +36,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-# Database setup
-DATABASE_URL = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=settings.database_echo,
-    pool_size=settings.database_pool_size,
-)
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -96,19 +84,6 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(metrics.router, prefix="/api/v1", tags=["monitoring"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(intent.router, prefix="/api/v1", tags=["intent"])
-
-# Dependency for session
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency: Get database session"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
 
 if __name__ == "__main__":
     import uvicorn
