@@ -5,9 +5,11 @@ LLM Service - Ollama integration for intent processing
 import structlog
 import httpx
 import json
+import time
 from typing import Optional, Dict, Any
 from app.config import settings
 from app.exceptions import LLMError
+from app.prometheus_metrics import record_llm_request
 
 logger = structlog.get_logger()
 
@@ -66,6 +68,9 @@ class OllamaService:
             
             logger.info("Processing intent with LLM", user_text=user_text[:50])
             
+            start_time = time.time()
+            success = False
+            
             # Call Ollama API with Ministral-3 parameters
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
@@ -90,6 +95,7 @@ class OllamaService:
                 # Parse LLM response to extract intent
                 intent_data = self._parse_intent_response(response_text, user_text)
                 
+                success = True
                 logger.info("Intent processed successfully", 
                            intent=intent_data.get("intent"),
                            confidence=intent_data.get("confidence"))
@@ -98,6 +104,14 @@ class OllamaService:
                 
         except httpx.TimeoutException as e:
             logger.error("Ollama timeout", user_text=user_text[:50])
+            raise LLMError(f"LLM timeout: {str(e)}")
+        except Exception as e:
+            logger.error("Intent processing failed", error=str(e), user_text=user_text[:50])
+            raise LLMError(f"Intent processing failed: {str(e)}")
+        finally:
+            # Record metrics
+            duration = time.time() - start_time
+            record_llm_request(model=self.model, duration=duration, success=success)
             raise LLMError(f"LLM timeout: {str(e)}")
         except Exception as e:
             logger.error("Intent processing failed", error=str(e), user_text=user_text[:50])

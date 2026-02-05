@@ -226,7 +226,8 @@ Response:
 - [ ] Rate limiting implementáció
 - [ ] Error handling & fallbacks
 - [ ] Unit & integration tests
-- [ ] Prometheus metrics refinement
+- [ ] Prometheus Grafana dashboards
+- [ ] Database query metrics tracking
 - [ ] Performance optimization
 
 ## Biztonsági Aspektusok
@@ -249,14 +250,16 @@ Response:
 - **Mezők:** timestamp, request_id, user_id, latency_ms, error
 
 ### Prometheus Metrikák
-- Request latency
-- Request count by endpoint
+- Request latency (histogram, buckets: 10ms-5s)
+- Request count by endpoint & status code
 - Error rate
-- LLM response time
+- **LLM response time** (histogram per model)
+- **LLM request count** (success/error)
 - Database query duration
 - Service health checks
 - Container resource usage
 - Database metrics
+- Active requests in progress
 
 ## Fejlesztői Útmutató
 
