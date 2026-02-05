@@ -1,6 +1,6 @@
 # Central Backend - Implementation Status
 
-**Updated:** 2026-01-23  
+**Updated:** 2026-02-05  
 **Version:** 1.0.0-beta
 
 ## ✅ Implementálva
@@ -84,6 +84,15 @@
 - [x] .env.example (environment template)
 - [x] API endpoint documentation
 
+### Monitoring
+- [x] Prometheus service (Docker Compose)
+- [x] Prometheus middleware (HTTP request tracking)
+- [x] `/metrics` endpoint (Prometheus text format export)
+- [x] HTTP request metrics (latency, count, size)
+- [x] LLM request metrics (latency, success/error tracking)
+- [x] prometheus.yml configuration
+- [x] Database query metric hooks (prepared)
+
 ## 🚧 Implementálás Alatt
 
 ### User API
@@ -125,9 +134,10 @@
 - [ ] Index optimization
 
 ### Monitoring
-- [ ] Prometheus metrics
+- [x] Prometheus metrics
 - [ ] Grafana dashboards (optional)
 - [ ] Alert rules
+- [ ] Database metrics exporters (postgres_exporter, redis_exporter)
 
 ### Testing
 - [ ] Unit tests (pytest)
@@ -202,23 +212,25 @@ curl -X POST http://localhost:8000/api/v1/intent \
 
 ## 🎯 Priority for Next Implementation
 
-### Phase 1 (Foundation) - Week 1-2
-1. Alembic migrations & automatic schema creation
-2. User registration & login endpoints
-3. Session management
-4. Audit logging to database
+### Phase 1 (Foundation) - Week 1-2 🔴 CRITICAL
+1. **Auth endpoints (register, login, refresh, logout)** - BLOCKS intent testing
+2. Alembic migrations & automatic schema creation
+3. Session management (Redis integration)
+4. Audit logging to database (persistence)
 
-### Phase 2 (Integration) - Week 2-3
-1. HA Manager ↔ User API integration
+### Phase 2 (Integration) - Week 2-3 🔴 CRITICAL
+1. HA Manager ↔ User API integration (HTTP calls)
 2. Intent execution on user's HA instance
-3. Error handling & fallbacks
-4. Response generation
+3. Response generation pipeline (LLM → HA → user)
+4. Error handling & fallbacks
+5. End-to-end intent flow testing
 
 ### Phase 3 (Operations) - Week 3-4
-1. Rate limiting
-2. Request validation
-3. Zabbix monitoring
-4. Performance optimization
+1. Rate limiting (Redis-based per-user throttling)
+2. Request validation layers
+3. Prometheus Grafana dashboards
+4. Database query metrics tracking
+5. Performance optimization & benchmarking
 
 ### Phase 4 (Testing & CI) - Week 4+
 1. Unit tests
@@ -229,26 +241,41 @@ curl -X POST http://localhost:8000/api/v1/intent \
 
 ## 📝 Checklist - Before Going to Production
 
-- [ ] All endpoints tested
-- [ ] Error handling complete
+- [ ] **AUTH ENDPOINTS WORKING** (register, login, valid tokens)
+- [ ] Intent endpoint accessible (with auth)
+- [ ] HA instance creation & execution flow
+- [ ] All endpoints tested & error cases handled
 - [ ] Rate limiting implemented
-- [ ] Audit trail working
+- [ ] Audit trail working (DB persistence)
 - [ ] Database backups automated
-- [ ] Monitoring setup (Prometheus)
-- [ ] Security review
-- [ ] Performance benchmarks
+- [ ] Monitoring dashboards (Prometheus + Grafana)
+- [ ] Security review (token, encryption, SQL injection)
+- [ ] Performance benchmarks (latency p95 < 2s end-to-end)
 - [ ] Load testing (100+ concurrent users)
 - [ ] Documentation complete
-- [ ] CI/CD pipeline working
+- [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Incident response plan
 
-## 🐛 Known Issues
+## 🐛 Known Issues & Blockers
 
-1. **HA Manager Database**: Currently using mock responses, need to implement actual DB persistence
-2. **Intent Execution**: HA instance integration not yet connected
-3. **Session Context**: Redis integration planned but not implemented
-4. **Error Codes**: Need standardized HTTP status codes
-5. **Ollama Model**: Need to verify ministral-3:3b works well with Hungarian commands
+1. **🔴 CRITICAL: Auth endpoints missing** - Blocks all intent testing. Need register/login endpoints.
+2. **HA Manager Database**: Currently using mock responses, need actual DB persistence
+3. **Intent Execution**: HA instance integration not yet connected to execution
+4. **Session Context**: Redis integration planned but not implemented
+5. **Error Codes**: Need standardized HTTP status codes across services
+6. **Ollama Model**: Need to verify ministral-3:3b works well with Hungarian commands
+7. **Database migrations**: Alembic not yet setup - schema creation needed
+8. **Prometheus dashboards**: Metrics exported but Grafana dashboards not created yet
+
+## ✨ Recent Accomplishments (Feb 5)
+
+- ✅ **Prometheus metrics fully implemented**
+  - PrometheusMiddleware for HTTP tracking
+  - `/metrics` endpoint working
+  - LLM latency tracking integrated
+  - Docker Compose service running
+- ✅ **Zabbix removed** - Using Prometheus exclusively
+- ✅ **Documentation updated** - README reflects Prometheus setup
 
 ## 📞 Questions & Notes
 
@@ -260,4 +287,10 @@ curl -X POST http://localhost:8000/api/v1/intent \
 
 ---
 
-**Status Summary:** Core infrastructure and service scaffolding complete. Ready for endpoint implementation and integration testing. 🚀
+**Status Summary:** 
+- ✅ Infrastructure complete (Docker, Postgres, Redis, Ollama, Prometheus)
+- ✅ Prometheus monitoring fully operational
+- ✅ LLM service integration working
+- 🚧 **BLOCKING: Auth endpoints needed for testing**
+- 🔴 Next priorities: Auth → HA integration → Intent execution
+- Ready for Phase 1 implementation sprint 🚀

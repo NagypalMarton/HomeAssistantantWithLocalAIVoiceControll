@@ -112,10 +112,6 @@ class OllamaService:
             # Record metrics
             duration = time.time() - start_time
             record_llm_request(model=self.model, duration=duration, success=success)
-            raise LLMError(f"LLM timeout: {str(e)}")
-        except Exception as e:
-            logger.error("Intent processing failed", error=str(e), user_text=user_text[:50])
-            raise LLMError(f"Intent processing failed: {str(e)}")
     
     def _build_prompt(
         self,
